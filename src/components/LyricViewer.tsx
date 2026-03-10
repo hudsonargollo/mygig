@@ -421,7 +421,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       )}
       {mode === "eraser" && (
         <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-destructive bg-muted/30">
-          ✕ Selecione texto para limpar marcações de vocalista.
+          <Eraser size={12} className="inline mr-1" /> Selecione texto para limpar marcações de vocalista.
         </div>
       )}
       {mode === "loop" && !pendingLoop && (
