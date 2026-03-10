@@ -404,24 +404,27 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
 
       <div className="flex flex-1 min-h-0">
         {/* Lyrics */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-10">
+        <div className="flex-1 overflow-y-auto p-6 md:px-10 md:py-6">
           <div className="max-w-3xl" ref={lyricsRef} onMouseUp={handleMouseUp}>
             {lines.map((line, i) => {
               const trimmed = line.trim();
               const isSection = trimmed.startsWith("[") && trimmed.endsWith("]");
               const isEmpty = trimmed === "";
 
-              if (isEmpty) return <div key={i} className="h-4" />;
+              if (isEmpty) return <div key={i} className="h-2" />;
 
               if (isSection) {
+                // Inline section tag — compact, no big vertical gap
+                const sectionName = trimmed.slice(1, -1);
                 return (
-                  <div key={i} className="font-display text-2xl tracking-wider text-primary mt-8 mb-3 first:mt-0">
-                    {trimmed}
+                  <div key={i} className="mt-4 mb-1 first:mt-0 flex items-center gap-2">
+                    <span className="font-mono-ui text-[10px] tracking-widest text-primary/70 uppercase bg-primary/5 px-2 py-0.5 border border-primary/20">
+                      {sectionName}
+                    </span>
                   </div>
                 );
               }
 
-              // Check if this line is in active loop range
               const inLoop = activeLoop && i >= activeLoop.lineStart && i <= activeLoop.lineEnd;
               const segments = getLineSegments(trimmed, annotations, song.id, i);
 
@@ -430,7 +433,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
                   key={i}
                   data-line-index={i}
                   onDoubleClick={() => mode === "vocalist" && clearLineAnnotations(i)}
-                  className={`font-mono-body text-sm md:text-base leading-8 py-0.5 ${
+                  className={`font-mono-body text-base md:text-lg leading-7 ${
                     mode ? "cursor-text select-text" : "cursor-default"
                   } ${inLoop ? "border-l-2 border-primary pl-3 bg-primary/5" : ""}`}
                 >
