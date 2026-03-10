@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Eraser } from "lucide-react";
+import { Eraser, Pencil } from "lucide-react";
 import type { Song } from "@/data/songs";
 import YouTubePlayer, { formatTime, parseTime } from "./YouTubePlayer";
 import type { LoopRegion } from "./YouTubePlayer";
@@ -107,8 +107,10 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
   const [activeLoop, setActiveLoop] = useState<LoopRegion | null>(null);
   const [loopMode, setLoopMode] = useState(false);
   const [pendingLoop, setPendingLoop] = useState<{ lineStart: number; lineEnd: number; label: string } | null>(null);
+  const [editingLoop, setEditingLoop] = useState<LoopRegion | null>(null);
   const [loopStartInput, setLoopStartInput] = useState("0:00");
   const [loopEndInput, setLoopEndInput] = useState("0:30");
+  const [loopLabelInput, setLoopLabelInput] = useState("");
   const [eraserMode, setEraserMode] = useState(false);
   const lyricsRef = useRef<HTMLDivElement>(null);
 
@@ -225,7 +227,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
     const newLoop: LoopRegion = {
       id: Date.now().toString(),
       songId: song.id,
-      label: pendingLoop.label || "Loop",
+      label: loopLabelInput || pendingLoop.label || "Loop",
       startTime: parseTime(loopStartInput),
       endTime: parseTime(loopEndInput),
       lineStart: pendingLoop.lineStart,
@@ -235,11 +237,35 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
     setActiveLoop(newLoop);
     setPendingLoop(null);
     setLoopMode(false);
+    setLoopLabelInput("");
+  };
+
+  const handleStartEditLoop = (loop: LoopRegion) => {
+    setEditingLoop(loop);
+    setLoopStartInput(formatTime(loop.startTime));
+    setLoopEndInput(formatTime(loop.endTime));
+    setLoopLabelInput(loop.label);
+    setPendingLoop(null);
+  };
+
+  const handleSaveEditLoop = () => {
+    if (!editingLoop) return;
+    const updated: LoopRegion = {
+      ...editingLoop,
+      label: loopLabelInput || editingLoop.label,
+      startTime: parseTime(loopStartInput),
+      endTime: parseTime(loopEndInput),
+    };
+    setLoops((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+    if (activeLoop?.id === updated.id) setActiveLoop(updated);
+    setEditingLoop(null);
+    setLoopLabelInput("");
   };
 
   const handleDeleteLoop = (id: string) => {
     setLoops((prev) => prev.filter((l) => l.id !== id));
     if (activeLoop?.id === id) setActiveLoop(null);
+    if (editingLoop?.id === id) setEditingLoop(null);
   };
 
   const clearLineAnnotations = useCallback(
@@ -377,9 +403,12 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       {pendingLoop && (
         <div className="border-b border-primary bg-muted/50 px-6 py-3 flex items-center gap-3 flex-wrap">
           <span className="font-mono-ui text-xs text-primary">🔁 DEFINIR LOOP:</span>
-          <span className="font-mono-ui text-xs text-foreground truncate max-w-[200px]">
-            "{pendingLoop.label}"
-          </span>
+          <input
+            value={loopLabelInput || pendingLoop.label}
+            onChange={(e) => setLoopLabelInput(e.target.value)}
+            className="w-40 bg-transparent border border-border px-1 py-0.5 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary"
+            placeholder="Label"
+          />
           <div className="flex items-center gap-1">
             <span className="font-mono-ui text-xs text-muted-foreground">DE</span>
             <input
@@ -403,7 +432,48 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
             SALVAR
           </button>
           <button
-            onClick={() => setPendingLoop(null)}
+            onClick={() => { setPendingLoop(null); setLoopLabelInput(""); }}
+            className="px-3 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Editing loop dialog */}
+      {editingLoop && (
+        <div className="border-b border-primary bg-muted/50 px-6 py-3 flex items-center gap-3 flex-wrap">
+          <span className="font-mono-ui text-xs text-primary">✏️ EDITAR LOOP:</span>
+          <input
+            value={loopLabelInput}
+            onChange={(e) => setLoopLabelInput(e.target.value)}
+            className="w-40 bg-transparent border border-border px-1 py-0.5 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary"
+            placeholder="Label"
+          />
+          <div className="flex items-center gap-1">
+            <span className="font-mono-ui text-xs text-muted-foreground">DE</span>
+            <input
+              value={loopStartInput}
+              onChange={(e) => setLoopStartInput(e.target.value)}
+              className="w-16 bg-transparent border border-border px-1 py-0.5 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary text-center"
+              placeholder="0:00"
+            />
+            <span className="font-mono-ui text-xs text-muted-foreground">ATÉ</span>
+            <input
+              value={loopEndInput}
+              onChange={(e) => setLoopEndInput(e.target.value)}
+              className="w-16 bg-transparent border border-border px-1 py-0.5 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary text-center"
+              placeholder="0:30"
+            />
+          </div>
+          <button
+            onClick={handleSaveEditLoop}
+            className="px-3 py-1 font-mono-ui text-xs border border-primary text-primary hover:bg-primary/10"
+          >
+            SALVAR
+          </button>
+          <button
+            onClick={() => { setEditingLoop(null); setLoopLabelInput(""); }}
             className="px-3 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent"
           >
             ✕
@@ -426,7 +496,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       )}
       {mode === "loop" && !pendingLoop && (
         <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-primary bg-muted/30">
-          🔁 Selecione um trecho da letra para criar um loop. Defina os timestamps depois.
+          🔁 Selecione um trecho da letra ou clique num título de seção para criar um loop.
         </div>
       )}
 
@@ -435,33 +505,42 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         <div className="px-6 py-2 border-b border-border flex items-center gap-2 flex-wrap bg-muted/20">
           <span className="font-mono-ui text-xs text-muted-foreground shrink-0">LOOPS:</span>
           {songLoops.map((loop) => (
-            <button
-              key={loop.id}
-              onClick={() => {
-                if (activeLoop?.id === loop.id) {
-                  setActiveLoop(null);
-                } else {
-                  setActiveLoop(loop);
-                  setShowYouTube(true);
-                }
-              }}
-              className={`px-2 py-0.5 font-mono-ui text-xs border transition-none flex items-center gap-1 max-w-[200px] ${
-                activeLoop?.id === loop.id
-                  ? "border-primary text-primary bg-primary/10"
-                  : "border-border text-muted-foreground hover:text-accent"
-              }`}
-            >
-              <span className="truncate">{loop.label.slice(0, 25)}</span>
-              <span className="text-muted-foreground shrink-0">
-                {formatTime(loop.startTime)}–{formatTime(loop.endTime)}
-              </span>
-              <span
-                onClick={(e) => { e.stopPropagation(); handleDeleteLoop(loop.id); }}
-                className="ml-1 text-destructive hover:text-accent shrink-0 cursor-pointer"
+            <div key={loop.id} className="flex items-center gap-0">
+              <button
+                onClick={() => {
+                  if (activeLoop?.id === loop.id) {
+                    setActiveLoop(null);
+                  } else {
+                    setActiveLoop(loop);
+                    setShowYouTube(true);
+                  }
+                }}
+                className={`px-2 py-0.5 font-mono-ui text-xs border border-r-0 transition-none flex items-center gap-1 max-w-[200px] ${
+                  activeLoop?.id === loop.id
+                    ? "border-primary text-primary bg-primary/10"
+                    : "border-border text-muted-foreground hover:text-accent"
+                }`}
+              >
+                <span className="truncate">{loop.label.slice(0, 25)}</span>
+                <span className="text-muted-foreground shrink-0">
+                  {formatTime(loop.startTime)}–{formatTime(loop.endTime)}
+                </span>
+              </button>
+              <button
+                onClick={() => handleStartEditLoop(loop)}
+                className="px-1.5 py-0.5 font-mono-ui text-xs border border-r-0 border-border text-muted-foreground hover:text-primary"
+                title="Editar loop"
+              >
+                <Pencil size={10} />
+              </button>
+              <button
+                onClick={() => handleDeleteLoop(loop.id)}
+                className="px-1.5 py-0.5 font-mono-ui text-xs border border-border text-muted-foreground hover:text-destructive"
+                title="Deletar loop"
               >
                 ✕
-              </span>
-            </button>
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -478,11 +557,22 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
               if (isEmpty) return <div key={i} className="h-2" />;
 
               if (isSection) {
-                // Inline section tag — compact, no big vertical gap
                 const sectionName = trimmed.slice(1, -1);
                 return (
-                  <div key={i} className="mt-4 mb-1 first:mt-0 flex items-center gap-2">
-                    <span className="font-mono-ui text-[10px] tracking-widest text-primary/70 uppercase bg-primary/5 px-2 py-0.5 border border-primary/20">
+                  <div
+                    key={i}
+                    data-line-index={i}
+                    className={`mt-4 mb-1 first:mt-0 flex items-center gap-2 ${mode === "loop" ? "cursor-pointer" : ""}`}
+                    onClick={() => {
+                      if (mode === "loop") {
+                        setPendingLoop({ lineStart: i, lineEnd: i, label: sectionName });
+                        setLoopStartInput("0:00");
+                        setLoopEndInput("0:30");
+                        setLoopLabelInput(sectionName);
+                      }
+                    }}
+                  >
+                    <span className={`font-mono-ui text-[10px] tracking-widest text-primary/70 uppercase bg-primary/5 px-2 py-0.5 border border-primary/20 ${mode === "loop" ? "hover:bg-primary/15 hover:border-primary/40" : ""}`}>
                       {sectionName}
                     </span>
                   </div>
