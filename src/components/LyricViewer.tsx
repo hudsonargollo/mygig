@@ -327,7 +327,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
                 : "border-border text-muted-foreground hover:text-accent"
             }`}
           >
-            ✕ LIMPAR
+            <Eraser size={14} className="inline mr-1" />LIMPAR
           </button>
           <button
             onClick={toggleLoopMode}

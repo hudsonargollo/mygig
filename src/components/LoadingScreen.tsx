@@ -118,6 +118,9 @@ const LoadingScreen = ({ onComplete }: LoadingScreenProps) => {
               style={{ opacity: showCursor ? 1 : 0 }}
             />
           </div>
+          <div className="font-mono-body text-xs tracking-[0.2em] text-muted-foreground mt-3 opacity-70">
+            {SUBTITLE_TEXT}
+          </div>
         </div>
       </div>
     </div>
