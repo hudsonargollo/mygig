@@ -23,7 +23,7 @@ const NOTES_KEY = "lp-setlist-notes";
 const YOUTUBE_KEY = "lp-setlist-youtube";
 const LOOPS_KEY = "lp-setlist-loops";
 
-type InteractionMode = "vocalist" | "loop" | null;
+type InteractionMode = "vocalist" | "loop" | "eraser" | null;
 
 const load = <T,>(key: string, fallback: T): T => {
   try {
