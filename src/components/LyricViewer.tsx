@@ -23,7 +23,7 @@ const NOTES_KEY = "lp-setlist-notes";
 const YOUTUBE_KEY = "lp-setlist-youtube";
 const LOOPS_KEY = "lp-setlist-loops";
 
-type InteractionMode = "vocalist" | "loop" | null;
+type InteractionMode = "vocalist" | "loop" | "eraser" | null;
 
 const load = <T,>(key: string, fallback: T): T => {
   try {
@@ -108,9 +108,10 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
   const [pendingLoop, setPendingLoop] = useState<{ lineStart: number; lineEnd: number; label: string } | null>(null);
   const [loopStartInput, setLoopStartInput] = useState("0:00");
   const [loopEndInput, setLoopEndInput] = useState("0:30");
+  const [eraserMode, setEraserMode] = useState(false);
   const lyricsRef = useRef<HTMLDivElement>(null);
 
-  const mode: InteractionMode = loopMode ? "loop" : activeVocalist ? "vocalist" : null;
+  const mode: InteractionMode = eraserMode ? "eraser" : loopMode ? "loop" : activeVocalist ? "vocalist" : null;
 
   useEffect(() => { save(STORAGE_KEY, annotations); }, [annotations]);
   useEffect(() => { save(NOTES_KEY, notes); }, [notes]);
@@ -138,6 +139,44 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       // Gather selected text as label
       const selectedText = selection.toString().slice(0, 60);
       setPendingLoop({ lineStart: startLineIdx, lineEnd: endLineIdx, label: selectedText });
+      selection.removeAllRanges();
+      return;
+    }
+
+    if (mode === "eraser") {
+      const eraseRanges: { lineIndex: number; startOffset: number; endOffset: number }[] = [];
+      for (let li = startLineIdx; li <= endLineIdx; li++) {
+        const lineEl = container.querySelector(`[data-line-index="${li}"]`);
+        if (!lineEl) continue;
+        const lineText = lineEl.textContent || "";
+        let startOffset = 0;
+        let endOffset = lineText.length;
+        if (li === startLineIdx) {
+          const preRange = document.createRange();
+          preRange.selectNodeContents(lineEl);
+          preRange.setEnd(range.startContainer, range.startOffset);
+          startOffset = preRange.toString().length;
+        }
+        if (li === endLineIdx) {
+          const preRange = document.createRange();
+          preRange.selectNodeContents(lineEl);
+          preRange.setEnd(range.endContainer, range.endOffset);
+          endOffset = preRange.toString().length;
+        }
+        if (startOffset < endOffset) {
+          eraseRanges.push({ lineIndex: li, startOffset, endOffset });
+        }
+      }
+      if (eraseRanges.length > 0) {
+        setAnnotations((prev) => {
+          let updated = [...prev];
+          for (const er of eraseRanges) {
+            const fakeAnn: TextAnnotation = { songId: song.id, lineIndex: er.lineIndex, startOffset: er.startOffset, endOffset: er.endOffset, vocalist: null };
+            updated = removeOverlap(updated, fakeAnn);
+          }
+          return updated;
+        });
+      }
       selection.removeAllRanges();
       return;
     }
@@ -214,14 +253,23 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
 
   const toggleVocalist = (v: Vocalist) => {
     setLoopMode(false);
+    setEraserMode(false);
     setPendingLoop(null);
     setActiveVocalist((prev) => (prev === v ? null : v));
   };
 
   const toggleLoopMode = () => {
     setActiveVocalist(null);
+    setEraserMode(false);
     setPendingLoop(null);
     setLoopMode((prev) => !prev);
+  };
+
+  const toggleEraserMode = () => {
+    setActiveVocalist(null);
+    setLoopMode(false);
+    setPendingLoop(null);
+    setEraserMode((prev) => !prev);
   };
 
   if (!song) {
@@ -270,6 +318,16 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
               </button>
             );
           })}
+          <button
+            onClick={toggleEraserMode}
+            className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+              eraserMode
+                ? "border-destructive text-destructive bg-destructive/10"
+                : "border-border text-muted-foreground hover:text-accent"
+            }`}
+          >
+            ✕ LIMPAR
+          </button>
           <button
             onClick={toggleLoopMode}
             className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
@@ -358,6 +416,11 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
           ✎ Selecione texto para marcar como{" "}
           {activeVocalist === "elektra" ? "LADY" : activeVocalist === "chinoda" ? "HUDS" : "LUAN"}.
           Clique duplo numa linha para limpar.
+        </div>
+      )}
+      {mode === "eraser" && (
+        <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-destructive bg-muted/30">
+          ✕ Selecione texto para limpar marcações de vocalista.
         </div>
       )}
       {mode === "loop" && !pendingLoop && (

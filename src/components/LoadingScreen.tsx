@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import logoSpinner from "@/assets/logo-spinner.gif";
+import logoSpinner from "@/assets/logo-spinner-2.gif";
 
 interface LoadingScreenProps {
   onComplete: () => void;
