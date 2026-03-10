@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { Song } from "@/data/songs";
-import YouTubePlayer from "./YouTubePlayer";
+import YouTubePlayer, { formatTime, parseTime } from "./YouTubePlayer";
+import type { LoopRegion } from "./YouTubePlayer";
 
 type Vocalist = "elektra" | "chinoda" | "luan" | null;
 
@@ -20,44 +21,21 @@ interface LyricViewerProps {
 const STORAGE_KEY = "lp-setlist-annotations-v2";
 const NOTES_KEY = "lp-setlist-notes";
 const YOUTUBE_KEY = "lp-setlist-youtube";
+const LOOPS_KEY = "lp-setlist-loops";
 
-const loadAnnotations = (): TextAnnotation[] => {
+type InteractionMode = "vocalist" | "loop" | null;
+
+const load = <T,>(key: string, fallback: T): T => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    const s = localStorage.getItem(key);
+    return s ? JSON.parse(s) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 };
 
-const saveAnnotations = (annotations: TextAnnotation[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(annotations));
-};
-
-const loadNotes = (): Record<string, string> => {
-  try {
-    const stored = localStorage.getItem(NOTES_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-const saveNotes = (notes: Record<string, string>) => {
-  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
-};
-
-const loadYouTubeLinks = (): Record<string, string> => {
-  try {
-    const stored = localStorage.getItem(YOUTUBE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-const saveYouTubeLinks = (links: Record<string, string>) => {
-  localStorage.setItem(YOUTUBE_KEY, JSON.stringify(links));
+const save = (key: string, data: unknown) => {
+  localStorage.setItem(key, JSON.stringify(data));
 };
 
 const VOCALIST_COLORS: Record<string, { text: string; bg: string; border: string }> = {
@@ -66,7 +44,6 @@ const VOCALIST_COLORS: Record<string, { text: string; bg: string; border: string
   luan: { text: "text-orange", bg: "bg-orange/15", border: "border-orange" },
 };
 
-// Merge overlapping annotations for the same vocalist, split for different
 const getLineSegments = (
   text: string,
   annotations: TextAnnotation[],
@@ -76,20 +53,15 @@ const getLineSegments = (
   const lineAnns = annotations.filter(
     (a) => a.songId === songId && a.lineIndex === lineIndex
   );
-
   if (lineAnns.length === 0) {
     return [{ text, vocalist: null as Vocalist, start: 0, end: text.length }];
   }
-
-  // Build a character-level vocalist map
-  const charMap: (Vocalist)[] = new Array(text.length).fill(null);
+  const charMap: Vocalist[] = new Array(text.length).fill(null);
   for (const ann of lineAnns) {
     for (let i = ann.startOffset; i < ann.endOffset && i < text.length; i++) {
       charMap[i] = ann.vocalist;
     }
   }
-
-  // Merge into segments
   const segments: { text: string; vocalist: Vocalist; start: number; end: number }[] = [];
   let i = 0;
   while (i < text.length) {
@@ -102,29 +74,51 @@ const getLineSegments = (
   return segments;
 };
 
+const removeOverlap = (existing: TextAnnotation[], newAnn: TextAnnotation): TextAnnotation[] => {
+  const result: TextAnnotation[] = [];
+  for (const ann of existing) {
+    if (ann.songId !== newAnn.songId || ann.lineIndex !== newAnn.lineIndex) {
+      result.push(ann);
+      continue;
+    }
+    if (ann.endOffset <= newAnn.startOffset || ann.startOffset >= newAnn.endOffset) {
+      result.push(ann);
+      continue;
+    }
+    if (ann.startOffset < newAnn.startOffset) {
+      result.push({ ...ann, endOffset: newAnn.startOffset });
+    }
+    if (ann.endOffset > newAnn.endOffset) {
+      result.push({ ...ann, startOffset: newAnn.endOffset });
+    }
+  }
+  return result;
+};
+
 const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
-  const [annotations, setAnnotations] = useState<TextAnnotation[]>(loadAnnotations);
+  const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => load(STORAGE_KEY, []));
   const [activeVocalist, setActiveVocalist] = useState<Vocalist>(null);
-  const [notes, setNotes] = useState<Record<string, string>>(loadNotes);
+  const [notes, setNotes] = useState<Record<string, string>>(() => load(NOTES_KEY, {}));
   const [showNotes, setShowNotes] = useState(false);
   const [showYouTube, setShowYouTube] = useState(false);
-  const [youtubeLinks, setYoutubeLinks] = useState<Record<string, string>>(loadYouTubeLinks);
+  const [youtubeLinks, setYoutubeLinks] = useState<Record<string, string>>(() => load(YOUTUBE_KEY, {}));
+  const [loops, setLoops] = useState<LoopRegion[]>(() => load(LOOPS_KEY, []));
+  const [activeLoop, setActiveLoop] = useState<LoopRegion | null>(null);
+  const [loopMode, setLoopMode] = useState(false);
+  const [pendingLoop, setPendingLoop] = useState<{ lineStart: number; lineEnd: number; label: string } | null>(null);
+  const [loopStartInput, setLoopStartInput] = useState("0:00");
+  const [loopEndInput, setLoopEndInput] = useState("0:30");
   const lyricsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    saveAnnotations(annotations);
-  }, [annotations]);
+  const mode: InteractionMode = loopMode ? "loop" : activeVocalist ? "vocalist" : null;
 
-  useEffect(() => {
-    saveNotes(notes);
-  }, [notes]);
-
-  useEffect(() => {
-    saveYouTubeLinks(youtubeLinks);
-  }, [youtubeLinks]);
+  useEffect(() => { save(STORAGE_KEY, annotations); }, [annotations]);
+  useEffect(() => { save(NOTES_KEY, notes); }, [notes]);
+  useEffect(() => { save(YOUTUBE_KEY, youtubeLinks); }, [youtubeLinks]);
+  useEffect(() => { save(LOOPS_KEY, loops); }, [loops]);
 
   const handleMouseUp = useCallback(() => {
-    if (!song || !activeVocalist) return;
+    if (!song) return;
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
 
@@ -132,89 +126,80 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
     const container = lyricsRef.current;
     if (!container || !container.contains(range.startContainer) || !container.contains(range.endContainer)) return;
 
-    // Find the lyric line elements involved
     const startLine = range.startContainer.parentElement?.closest("[data-line-index]");
     const endLine = range.endContainer.parentElement?.closest("[data-line-index]");
-
     if (!startLine || !endLine) return;
 
     const startLineIdx = parseInt(startLine.getAttribute("data-line-index") || "-1");
     const endLineIdx = parseInt(endLine.getAttribute("data-line-index") || "-1");
-
     if (startLineIdx < 0 || endLineIdx < 0) return;
 
-    const newAnnotations: TextAnnotation[] = [];
+    if (mode === "loop") {
+      // Gather selected text as label
+      const selectedText = selection.toString().slice(0, 60);
+      setPendingLoop({ lineStart: startLineIdx, lineEnd: endLineIdx, label: selectedText });
+      selection.removeAllRanges();
+      return;
+    }
 
-    for (let li = startLineIdx; li <= endLineIdx; li++) {
-      const lineEl = container.querySelector(`[data-line-index="${li}"]`);
-      if (!lineEl) continue;
-
-      const lineText = lineEl.textContent || "";
-      let startOffset = 0;
-      let endOffset = lineText.length;
-
-      if (li === startLineIdx) {
-        // Calculate start offset within this line
-        const preRange = document.createRange();
-        preRange.selectNodeContents(lineEl);
-        preRange.setEnd(range.startContainer, range.startOffset);
-        startOffset = preRange.toString().length;
+    if (mode === "vocalist" && activeVocalist) {
+      const newAnnotations: TextAnnotation[] = [];
+      for (let li = startLineIdx; li <= endLineIdx; li++) {
+        const lineEl = container.querySelector(`[data-line-index="${li}"]`);
+        if (!lineEl) continue;
+        const lineText = lineEl.textContent || "";
+        let startOffset = 0;
+        let endOffset = lineText.length;
+        if (li === startLineIdx) {
+          const preRange = document.createRange();
+          preRange.selectNodeContents(lineEl);
+          preRange.setEnd(range.startContainer, range.startOffset);
+          startOffset = preRange.toString().length;
+        }
+        if (li === endLineIdx) {
+          const preRange = document.createRange();
+          preRange.selectNodeContents(lineEl);
+          preRange.setEnd(range.endContainer, range.endOffset);
+          endOffset = preRange.toString().length;
+        }
+        if (startOffset < endOffset) {
+          newAnnotations.push({ songId: song.id, lineIndex: li, startOffset, endOffset, vocalist: activeVocalist });
+        }
       }
-      if (li === endLineIdx) {
-        const preRange = document.createRange();
-        preRange.selectNodeContents(lineEl);
-        preRange.setEnd(range.endContainer, range.endOffset);
-        endOffset = preRange.toString().length;
-      }
-
-      if (startOffset < endOffset) {
-        newAnnotations.push({
-          songId: song.id,
-          lineIndex: li,
-          startOffset,
-          endOffset,
-          vocalist: activeVocalist,
+      if (newAnnotations.length > 0) {
+        setAnnotations((prev) => {
+          let updated = [...prev];
+          for (const newAnn of newAnnotations) {
+            updated = removeOverlap(updated, newAnn);
+            updated.push(newAnn);
+          }
+          return updated;
         });
       }
+      selection.removeAllRanges();
     }
+  }, [song, mode, activeVocalist]);
 
-    if (newAnnotations.length > 0) {
-      setAnnotations((prev) => {
-        // Remove overlapping annotations for these ranges
-        let updated = [...prev];
-        for (const newAnn of newAnnotations) {
-          updated = removeOverlap(updated, newAnn);
-          updated.push(newAnn);
-        }
-        return updated;
-      });
-    }
+  const handleSaveLoop = () => {
+    if (!song || !pendingLoop) return;
+    const newLoop: LoopRegion = {
+      id: Date.now().toString(),
+      songId: song.id,
+      label: pendingLoop.label || "Loop",
+      startTime: parseTime(loopStartInput),
+      endTime: parseTime(loopEndInput),
+      lineStart: pendingLoop.lineStart,
+      lineEnd: pendingLoop.lineEnd,
+    };
+    setLoops((prev) => [...prev, newLoop]);
+    setActiveLoop(newLoop);
+    setPendingLoop(null);
+    setLoopMode(false);
+  };
 
-    selection.removeAllRanges();
-  }, [song, activeVocalist]);
-
-  // Remove or split existing annotations that overlap with a new one
-  const removeOverlap = (existing: TextAnnotation[], newAnn: TextAnnotation): TextAnnotation[] => {
-    const result: TextAnnotation[] = [];
-    for (const ann of existing) {
-      if (ann.songId !== newAnn.songId || ann.lineIndex !== newAnn.lineIndex) {
-        result.push(ann);
-        continue;
-      }
-      // Check overlap
-      if (ann.endOffset <= newAnn.startOffset || ann.startOffset >= newAnn.endOffset) {
-        result.push(ann);
-        continue;
-      }
-      // Partial overlaps - keep non-overlapping parts
-      if (ann.startOffset < newAnn.startOffset) {
-        result.push({ ...ann, endOffset: newAnn.startOffset });
-      }
-      if (ann.endOffset > newAnn.endOffset) {
-        result.push({ ...ann, startOffset: newAnn.endOffset });
-      }
-    }
-    return result;
+  const handleDeleteLoop = (id: string) => {
+    setLoops((prev) => prev.filter((l) => l.id !== id));
+    if (activeLoop?.id === id) setActiveLoop(null);
   };
 
   const clearLineAnnotations = useCallback(
@@ -226,6 +211,18 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
     },
     [song]
   );
+
+  const toggleVocalist = (v: Vocalist) => {
+    setLoopMode(false);
+    setPendingLoop(null);
+    setActiveVocalist((prev) => (prev === v ? null : v));
+  };
+
+  const toggleLoopMode = () => {
+    setActiveVocalist(null);
+    setPendingLoop(null);
+    setLoopMode((prev) => !prev);
+  };
 
   if (!song) {
     return (
@@ -240,6 +237,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
   const lines = song.lyrics.split("\n");
   const currentNote = notes[song.id] || "";
   const currentYouTube = youtubeLinks[song.id] || "";
+  const songLoops = loops.filter((l) => l.songId === song.id);
 
   return (
     <div className="flex-1 flex flex-col bg-background min-h-0">
@@ -254,35 +252,33 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
           </h1>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {(["elektra", "chinoda", "luan"] as const).map((v) => {
+            const labels = { elektra: "LADY ELEKTRA", chinoda: "HUDS CHINODA", luan: "LUAN DELSON" };
+            const colorKey = { elektra: "cyan", chinoda: "yellow", luan: "orange" };
+            const c = colorKey[v];
+            return (
+              <button
+                key={v}
+                onClick={() => toggleVocalist(v)}
+                className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+                  activeVocalist === v
+                    ? `border-${c} text-${c} bg-${c}/10`
+                    : "border-border text-muted-foreground hover:text-accent"
+                }`}
+              >
+                {labels[v]}
+              </button>
+            );
+          })}
           <button
-            onClick={() => setActiveVocalist(activeVocalist === "elektra" ? null : "elektra")}
+            onClick={toggleLoopMode}
             className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
-              activeVocalist === "elektra"
-                ? "border-cyan text-cyan bg-cyan/10"
+              loopMode
+                ? "border-primary text-primary bg-primary/10"
                 : "border-border text-muted-foreground hover:text-accent"
             }`}
           >
-            LADY ELEKTRA
-          </button>
-          <button
-            onClick={() => setActiveVocalist(activeVocalist === "chinoda" ? null : "chinoda")}
-            className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
-              activeVocalist === "chinoda"
-                ? "border-yellow text-yellow bg-yellow/10"
-                : "border-border text-muted-foreground hover:text-accent"
-            }`}
-          >
-            HUDS CHINODA
-          </button>
-          <button
-            onClick={() => setActiveVocalist(activeVocalist === "luan" ? null : "luan")}
-            className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
-              activeVocalist === "luan"
-                ? "border-orange text-orange bg-orange/10"
-                : "border-border text-muted-foreground hover:text-accent"
-            }`}
-          >
-            LUAN DELSON
+            🔁 LOOP
           </button>
           <button
             onClick={() => setShowYouTube(!showYouTube)}
@@ -312,26 +308,97 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         <YouTubePlayer
           youtubeUrl={currentYouTube}
           songTitle={song.title}
-          onUrlChange={(url) =>
-            setYoutubeLinks((prev) => ({ ...prev, [song.id]: url }))
-          }
+          onUrlChange={(url) => setYoutubeLinks((prev) => ({ ...prev, [song.id]: url }))}
+          activeLoop={activeLoop}
+          onClearLoop={() => setActiveLoop(null)}
         />
       )}
 
+      {/* Pending loop dialog */}
+      {pendingLoop && (
+        <div className="border-b border-primary bg-muted/50 px-6 py-3 flex items-center gap-3 flex-wrap">
+          <span className="font-mono-ui text-xs text-primary">🔁 DEFINIR LOOP:</span>
+          <span className="font-mono-ui text-xs text-foreground truncate max-w-[200px]">
+            "{pendingLoop.label}"
+          </span>
+          <div className="flex items-center gap-1">
+            <span className="font-mono-ui text-xs text-muted-foreground">DE</span>
+            <input
+              value={loopStartInput}
+              onChange={(e) => setLoopStartInput(e.target.value)}
+              className="w-16 bg-transparent border border-border px-1 py-0.5 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary text-center"
+              placeholder="0:00"
+            />
+            <span className="font-mono-ui text-xs text-muted-foreground">ATÉ</span>
+            <input
+              value={loopEndInput}
+              onChange={(e) => setLoopEndInput(e.target.value)}
+              className="w-16 bg-transparent border border-border px-1 py-0.5 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary text-center"
+              placeholder="0:30"
+            />
+          </div>
+          <button
+            onClick={handleSaveLoop}
+            className="px-3 py-1 font-mono-ui text-xs border border-primary text-primary hover:bg-primary/10"
+          >
+            SALVAR
+          </button>
+          <button
+            onClick={() => setPendingLoop(null)}
+            className="px-3 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Instruction banner */}
-      {activeVocalist && (
-        <div
-          className={`px-6 py-2 text-xs font-mono-ui border-b border-border ${
-            VOCALIST_COLORS[activeVocalist].text
-          } bg-muted/30`}
-        >
-          ✎ Selecione texto nas letras para marcar como{" "}
-          {activeVocalist === "elektra"
-            ? "LADY ELEKTRA"
-            : activeVocalist === "chinoda"
-            ? "HUDS CHINODA"
-            : "LUAN DELSON"}
-          . Clique duplo numa linha para limpar marcações.
+      {mode === "vocalist" && activeVocalist && (
+        <div className={`px-6 py-2 text-xs font-mono-ui border-b border-border ${VOCALIST_COLORS[activeVocalist].text} bg-muted/30`}>
+          ✎ Selecione texto para marcar como{" "}
+          {activeVocalist === "elektra" ? "LADY ELEKTRA" : activeVocalist === "chinoda" ? "HUDS CHINODA" : "LUAN DELSON"}.
+          Clique duplo numa linha para limpar.
+        </div>
+      )}
+      {mode === "loop" && !pendingLoop && (
+        <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-primary bg-muted/30">
+          🔁 Selecione um trecho da letra para criar um loop. Defina os timestamps depois.
+        </div>
+      )}
+
+      {/* Saved loops bar */}
+      {songLoops.length > 0 && (
+        <div className="px-6 py-2 border-b border-border flex items-center gap-2 flex-wrap bg-muted/20">
+          <span className="font-mono-ui text-xs text-muted-foreground shrink-0">LOOPS:</span>
+          {songLoops.map((loop) => (
+            <button
+              key={loop.id}
+              onClick={() => {
+                if (activeLoop?.id === loop.id) {
+                  setActiveLoop(null);
+                } else {
+                  setActiveLoop(loop);
+                  setShowYouTube(true);
+                }
+              }}
+              className={`px-2 py-0.5 font-mono-ui text-xs border transition-none flex items-center gap-1 max-w-[200px] ${
+                activeLoop?.id === loop.id
+                  ? "border-primary text-primary bg-primary/10"
+                  : "border-border text-muted-foreground hover:text-accent"
+              }`}
+            >
+              <span className="truncate">{loop.label.slice(0, 25)}</span>
+              <span className="text-muted-foreground shrink-0">
+                {formatTime(loop.startTime)}–{formatTime(loop.endTime)}
+              </span>
+              <span
+                onClick={(e) => { e.stopPropagation(); handleDeleteLoop(loop.id); }}
+                className="ml-1 text-destructive hover:text-accent shrink-0 cursor-pointer"
+              >
+                ✕
+              </span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -344,44 +411,35 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
               const isSection = trimmed.startsWith("[") && trimmed.endsWith("]");
               const isEmpty = trimmed === "";
 
-              if (isEmpty) {
-                return <div key={i} className="h-4" />;
-              }
+              if (isEmpty) return <div key={i} className="h-4" />;
 
               if (isSection) {
                 return (
-                  <div
-                    key={i}
-                    className="font-display text-2xl tracking-wider text-primary mt-8 mb-3 first:mt-0"
-                  >
+                  <div key={i} className="font-display text-2xl tracking-wider text-primary mt-8 mb-3 first:mt-0">
                     {trimmed}
                   </div>
                 );
               }
 
+              // Check if this line is in active loop range
+              const inLoop = activeLoop && i >= activeLoop.lineStart && i <= activeLoop.lineEnd;
               const segments = getLineSegments(trimmed, annotations, song.id, i);
 
               return (
                 <div
                   key={i}
                   data-line-index={i}
-                  onDoubleClick={() => clearLineAnnotations(i)}
+                  onDoubleClick={() => mode === "vocalist" && clearLineAnnotations(i)}
                   className={`font-mono-body text-sm md:text-base leading-8 py-0.5 ${
-                    activeVocalist ? "cursor-text select-text" : "cursor-default"
-                  }`}
+                    mode ? "cursor-text select-text" : "cursor-default"
+                  } ${inLoop ? "border-l-2 border-primary pl-3 bg-primary/5" : ""}`}
                 >
                   {segments.map((seg, si) => {
-                    const colors = seg.vocalist
-                      ? VOCALIST_COLORS[seg.vocalist]
-                      : null;
+                    const colors = seg.vocalist ? VOCALIST_COLORS[seg.vocalist] : null;
                     return (
                       <span
                         key={si}
-                        className={
-                          colors
-                            ? `${colors.text} ${colors.bg} px-0.5`
-                            : "text-foreground"
-                        }
+                        className={colors ? `${colors.text} ${colors.bg} px-0.5` : "text-foreground"}
                       >
                         {seg.text}
                       </span>
@@ -402,9 +460,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
             </div>
             <textarea
               value={currentNote}
-              onChange={(e) =>
-                setNotes((prev) => ({ ...prev, [song.id]: e.target.value }))
-              }
+              onChange={(e) => setNotes((prev) => ({ ...prev, [song.id]: e.target.value }))}
               placeholder=""
               className="flex-1 bg-transparent text-foreground font-mono-body text-sm p-4 resize-none focus:outline-none placeholder:text-transparent"
               spellCheck={false}
