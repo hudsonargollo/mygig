@@ -253,7 +253,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         </div>
         <div className="flex gap-2 flex-wrap">
           {(["elektra", "chinoda", "luan"] as const).map((v) => {
-            const labels = { elektra: "LADY ELEKTRA", chinoda: "HUDS CHINODA", luan: "LUAN DELSON" };
+            const labels = { elektra: "LADY", chinoda: "HUDS", luan: "LUAN" };
             const colorKey = { elektra: "cyan", chinoda: "yellow", luan: "orange" };
             const c = colorKey[v];
             return (
@@ -356,7 +356,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       {mode === "vocalist" && activeVocalist && (
         <div className={`px-6 py-2 text-xs font-mono-ui border-b border-border ${VOCALIST_COLORS[activeVocalist].text} bg-muted/30`}>
           ✎ Selecione texto para marcar como{" "}
-          {activeVocalist === "elektra" ? "LADY ELEKTRA" : activeVocalist === "chinoda" ? "HUDS CHINODA" : "LUAN DELSON"}.
+          {activeVocalist === "elektra" ? "LADY" : activeVocalist === "chinoda" ? "HUDS" : "LUAN"}.
           Clique duplo numa linha para limpar.
         </div>
       )}
