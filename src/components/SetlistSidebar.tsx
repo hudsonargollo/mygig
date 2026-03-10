@@ -103,6 +103,10 @@ const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder }: Setl
           <span className="w-3 h-3 bg-yellow inline-block" />
           <span className="font-mono-ui text-xs text-foreground">HUDS CHINODA</span>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 bg-orange inline-block" />
+          <span className="font-mono-ui text-xs text-foreground">LUAN DELSON</span>
+        </div>
       </div>
     </div>
   );
