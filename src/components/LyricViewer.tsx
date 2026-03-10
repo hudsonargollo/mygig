@@ -4,7 +4,8 @@ import type { Song } from "@/data/songs";
 import YouTubePlayer, { formatTime, parseTime } from "./YouTubePlayer";
 import type { LoopRegion } from "./YouTubePlayer";
 
-type Vocalist = "elektra" | "chinoda" | "luan" | null;
+type Vocalist = "elektra" | "chinoda" | "luan";
+type VocalistOrNull = Vocalist | null;
 
 interface TextAnnotation {
   songId: string;
@@ -39,46 +40,64 @@ const save = (key: string, data: unknown) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
-const VOCALIST_COLORS: Record<string, { text: string; bg: string; border: string }> = {
-  elektra: { text: "text-cyan", bg: "bg-cyan/15", border: "border-cyan" },
-  chinoda: { text: "text-yellow", bg: "bg-yellow/15", border: "border-yellow" },
-  luan: { text: "text-orange", bg: "bg-orange/15", border: "border-orange" },
+const VOCALIST_COLORS: Record<Vocalist, { text: string; bg: string; border: string; css: string }> = {
+  elektra: { text: "text-cyan", bg: "bg-cyan/15", border: "border-cyan", css: "hsl(var(--cyan))" },
+  chinoda: { text: "text-yellow", bg: "bg-yellow/15", border: "border-yellow", css: "hsl(var(--yellow))" },
+  luan: { text: "text-orange", bg: "bg-orange/15", border: "border-orange", css: "hsl(var(--orange))" },
 };
+
+const VOCALIST_LABELS: Record<Vocalist, string> = {
+  elektra: "L",
+  chinoda: "H",
+  luan: "Lu",
+};
+
+// Segments now carry an array of vocalists
+interface LineSegment {
+  text: string;
+  vocalists: Vocalist[];
+  start: number;
+  end: number;
+}
 
 const getLineSegments = (
   text: string,
   annotations: TextAnnotation[],
   songId: string,
   lineIndex: number
-) => {
+): LineSegment[] => {
   const lineAnns = annotations.filter(
     (a) => a.songId === songId && a.lineIndex === lineIndex
   );
   if (lineAnns.length === 0) {
-    return [{ text, vocalist: null as Vocalist, start: 0, end: text.length }];
+    return [{ text, vocalists: [], start: 0, end: text.length }];
   }
-  const charMap: Vocalist[] = new Array(text.length).fill(null);
+  // Build a set of vocalists per character
+  const charMap: Set<Vocalist>[] = Array.from({ length: text.length }, () => new Set());
   for (const ann of lineAnns) {
     for (let i = ann.startOffset; i < ann.endOffset && i < text.length; i++) {
-      charMap[i] = ann.vocalist;
+      charMap[i].add(ann.vocalist);
     }
   }
-  const segments: { text: string; vocalist: Vocalist; start: number; end: number }[] = [];
+  // Group consecutive chars with same vocalist set
+  const key = (s: Set<Vocalist>) => [...s].sort().join(",");
+  const segments: LineSegment[] = [];
   let i = 0;
   while (i < text.length) {
-    const v = charMap[i];
+    const k = key(charMap[i]);
     let j = i;
-    while (j < text.length && charMap[j] === v) j++;
-    segments.push({ text: text.slice(i, j), vocalist: v, start: i, end: j });
+    while (j < text.length && key(charMap[j]) === k) j++;
+    segments.push({ text: text.slice(i, j), vocalists: [...charMap[i]].sort(), start: i, end: j });
     i = j;
   }
   return segments;
 };
 
-const removeOverlap = (existing: TextAnnotation[], newAnn: TextAnnotation): TextAnnotation[] => {
+/** Remove annotations of the SAME vocalist that overlap with newAnn */
+const removeSameVocalistOverlap = (existing: TextAnnotation[], newAnn: TextAnnotation): TextAnnotation[] => {
   const result: TextAnnotation[] = [];
   for (const ann of existing) {
-    if (ann.songId !== newAnn.songId || ann.lineIndex !== newAnn.lineIndex) {
+    if (ann.songId !== newAnn.songId || ann.lineIndex !== newAnn.lineIndex || ann.vocalist !== newAnn.vocalist) {
       result.push(ann);
       continue;
     }
@@ -96,9 +115,31 @@ const removeOverlap = (existing: TextAnnotation[], newAnn: TextAnnotation): Text
   return result;
 };
 
+/** Remove ALL vocalist annotations that overlap with the given range */
+const removeAllOverlap = (existing: TextAnnotation[], songId: string, lineIndex: number, startOffset: number, endOffset: number): TextAnnotation[] => {
+  const result: TextAnnotation[] = [];
+  for (const ann of existing) {
+    if (ann.songId !== songId || ann.lineIndex !== lineIndex) {
+      result.push(ann);
+      continue;
+    }
+    if (ann.endOffset <= startOffset || ann.startOffset >= endOffset) {
+      result.push(ann);
+      continue;
+    }
+    if (ann.startOffset < startOffset) {
+      result.push({ ...ann, endOffset: startOffset });
+    }
+    if (ann.endOffset > endOffset) {
+      result.push({ ...ann, startOffset: endOffset });
+    }
+  }
+  return result;
+};
+
 const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
   const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => load(STORAGE_KEY, []));
-  const [activeVocalist, setActiveVocalist] = useState<Vocalist>(null);
+  const [activeVocalist, setActiveVocalist] = useState<VocalistOrNull>(null);
   const [notes, setNotes] = useState<Record<string, string>>(() => load(NOTES_KEY, {}));
   const [showNotes, setShowNotes] = useState(false);
   const [showYouTube, setShowYouTube] = useState(false);
@@ -139,47 +180,45 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
     if (startLineIdx < 0 || endLineIdx < 0) return;
 
     if (mode === "loop") {
-      // Gather selected text as label
       const selectedText = selection.toString().slice(0, 60);
       setPendingLoop({ lineStart: startLineIdx, lineEnd: endLineIdx, label: selectedText });
       selection.removeAllRanges();
       return;
     }
 
+    // Helper to get offsets for a line
+    const getOffsets = (li: number, isStart: boolean, isEnd: boolean) => {
+      const lineEl = container.querySelector(`[data-line-index="${li}"]`);
+      if (!lineEl) return null;
+      const lineText = lineEl.textContent || "";
+      let startOffset = 0;
+      let endOffset = lineText.length;
+      if (isStart) {
+        const preRange = document.createRange();
+        preRange.selectNodeContents(lineEl);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        startOffset = preRange.toString().length;
+      }
+      if (isEnd) {
+        const preRange = document.createRange();
+        preRange.selectNodeContents(lineEl);
+        preRange.setEnd(range.endContainer, range.endOffset);
+        endOffset = preRange.toString().length;
+      }
+      return startOffset < endOffset ? { lineIndex: li, startOffset, endOffset } : null;
+    };
+
     if (mode === "eraser") {
-      const eraseRanges: { lineIndex: number; startOffset: number; endOffset: number }[] = [];
-      for (let li = startLineIdx; li <= endLineIdx; li++) {
-        const lineEl = container.querySelector(`[data-line-index="${li}"]`);
-        if (!lineEl) continue;
-        const lineText = lineEl.textContent || "";
-        let startOffset = 0;
-        let endOffset = lineText.length;
-        if (li === startLineIdx) {
-          const preRange = document.createRange();
-          preRange.selectNodeContents(lineEl);
-          preRange.setEnd(range.startContainer, range.startOffset);
-          startOffset = preRange.toString().length;
-        }
-        if (li === endLineIdx) {
-          const preRange = document.createRange();
-          preRange.selectNodeContents(lineEl);
-          preRange.setEnd(range.endContainer, range.endOffset);
-          endOffset = preRange.toString().length;
-        }
-        if (startOffset < endOffset) {
-          eraseRanges.push({ lineIndex: li, startOffset, endOffset });
-        }
-      }
-      if (eraseRanges.length > 0) {
-        setAnnotations((prev) => {
-          let updated = [...prev];
-          for (const er of eraseRanges) {
-            const fakeAnn: TextAnnotation = { songId: song.id, lineIndex: er.lineIndex, startOffset: er.startOffset, endOffset: er.endOffset, vocalist: null };
-            updated = removeOverlap(updated, fakeAnn);
+      setAnnotations((prev) => {
+        let updated = [...prev];
+        for (let li = startLineIdx; li <= endLineIdx; li++) {
+          const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
+          if (offsets) {
+            updated = removeAllOverlap(updated, song.id, offsets.lineIndex, offsets.startOffset, offsets.endOffset);
           }
-          return updated;
-        });
-      }
+        }
+        return updated;
+      });
       selection.removeAllRanges();
       return;
     }
@@ -187,32 +226,17 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
     if (mode === "vocalist" && activeVocalist) {
       const newAnnotations: TextAnnotation[] = [];
       for (let li = startLineIdx; li <= endLineIdx; li++) {
-        const lineEl = container.querySelector(`[data-line-index="${li}"]`);
-        if (!lineEl) continue;
-        const lineText = lineEl.textContent || "";
-        let startOffset = 0;
-        let endOffset = lineText.length;
-        if (li === startLineIdx) {
-          const preRange = document.createRange();
-          preRange.selectNodeContents(lineEl);
-          preRange.setEnd(range.startContainer, range.startOffset);
-          startOffset = preRange.toString().length;
-        }
-        if (li === endLineIdx) {
-          const preRange = document.createRange();
-          preRange.selectNodeContents(lineEl);
-          preRange.setEnd(range.endContainer, range.endOffset);
-          endOffset = preRange.toString().length;
-        }
-        if (startOffset < endOffset) {
-          newAnnotations.push({ songId: song.id, lineIndex: li, startOffset, endOffset, vocalist: activeVocalist });
+        const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
+        if (offsets) {
+          newAnnotations.push({ songId: song.id, lineIndex: offsets.lineIndex, startOffset: offsets.startOffset, endOffset: offsets.endOffset, vocalist: activeVocalist });
         }
       }
       if (newAnnotations.length > 0) {
         setAnnotations((prev) => {
           let updated = [...prev];
           for (const newAnn of newAnnotations) {
-            updated = removeOverlap(updated, newAnn);
+            // Only remove same-vocalist overlaps — other vocalists stay!
+            updated = removeSameVocalistOverlap(updated, newAnn);
             updated.push(newAnn);
           }
           return updated;
@@ -278,7 +302,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
     [song]
   );
 
-  const toggleVocalist = (v: Vocalist) => {
+  const toggleVocalist = (v: VocalistOrNull) => {
     setLoopMode(false);
     setEraserMode(false);
     setPendingLoop(null);
@@ -328,8 +352,8 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         </div>
         <div className="flex gap-2 flex-wrap">
           {(["elektra", "chinoda", "luan"] as const).map((v) => {
-            const labels = { elektra: "LADY", chinoda: "HUDS", luan: "LUAN" };
-            const colorKey = { elektra: "cyan", chinoda: "yellow", luan: "orange" };
+            const labels: Record<Vocalist, string> = { elektra: "LADY", chinoda: "HUDS", luan: "LUAN" };
+            const colorKey: Record<Vocalist, string> = { elektra: "cyan", chinoda: "yellow", luan: "orange" };
             const c = colorKey[v];
             return (
               <button
@@ -486,7 +510,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         <div className={`px-6 py-2 text-xs font-mono-ui border-b border-border ${VOCALIST_COLORS[activeVocalist].text} bg-muted/30`}>
           ✎ Selecione texto para marcar como{" "}
           {activeVocalist === "elektra" ? "LADY" : activeVocalist === "chinoda" ? "HUDS" : "LUAN"}.
-          Clique duplo numa linha para limpar.
+          {" "}Pode sobrepor com outros vocalistas. Clique duplo numa linha para limpar tudo.
         </div>
       )}
       {mode === "eraser" && (
@@ -591,17 +615,9 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
                     mode ? "cursor-text select-text" : "cursor-default"
                   } ${inLoop ? "border-l-2 border-primary pl-3 bg-primary/5" : ""}`}
                 >
-                  {segments.map((seg, si) => {
-                    const colors = seg.vocalist ? VOCALIST_COLORS[seg.vocalist] : null;
-                    return (
-                      <span
-                        key={si}
-                        className={colors ? `${colors.text} ${colors.bg} px-0.5` : "text-foreground"}
-                      >
-                        {seg.text}
-                      </span>
-                    );
-                  })}
+                  {segments.map((seg, si) => (
+                    <SegmentSpan key={si} segment={seg} />
+                  ))}
                 </div>
               );
             })}
@@ -626,6 +642,60 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         )}
       </div>
     </div>
+  );
+};
+
+/** Renders a single segment with support for multi-vocalist display */
+const SegmentSpan = ({ segment }: { segment: LineSegment }) => {
+  const { text, vocalists } = segment;
+
+  if (vocalists.length === 0) {
+    return <span className="text-foreground">{text}</span>;
+  }
+
+  if (vocalists.length === 1) {
+    const colors = VOCALIST_COLORS[vocalists[0]];
+    return (
+      <span className={`${colors.text} ${colors.bg} px-0.5`}>
+        {text}
+      </span>
+    );
+  }
+
+  // Multi-vocalist: show with gradient underline and vocalist initials
+  const bgColors = vocalists.map((v) => VOCALIST_COLORS[v].css);
+  const gradientStyle: React.CSSProperties = {
+    backgroundImage: `linear-gradient(90deg, ${bgColors.join(", ")})`,
+    backgroundSize: "100% 2px",
+    backgroundPosition: "bottom",
+    backgroundRepeat: "no-repeat",
+    paddingBottom: "3px",
+  };
+
+  return (
+    <span className="relative inline-flex items-baseline gap-0">
+      <span
+        className="text-foreground px-0.5"
+        style={gradientStyle}
+      >
+        {text}
+      </span>
+      <span className="inline-flex gap-px ml-0.5 self-end translate-y-[-1px]">
+        {vocalists.map((v) => (
+          <span
+            key={v}
+            className="font-mono-ui leading-none select-none"
+            style={{
+              fontSize: "7px",
+              color: VOCALIST_COLORS[v].css,
+              opacity: 0.9,
+            }}
+          >
+            {VOCALIST_LABELS[v]}
+          </span>
+        ))}
+      </span>
+    </span>
   );
 };
 
