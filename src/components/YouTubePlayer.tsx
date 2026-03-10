@@ -3,6 +3,7 @@ import { useState } from "react";
 interface YouTubePlayerProps {
   youtubeUrl: string;
   onUrlChange: (url: string) => void;
+  songTitle?: string;
 }
 
 const extractVideoId = (url: string): string | null => {
@@ -16,7 +17,7 @@ const extractVideoId = (url: string): string | null => {
   return null;
 };
 
-const YouTubePlayer = ({ youtubeUrl, onUrlChange }: YouTubePlayerProps) => {
+const YouTubePlayer = ({ youtubeUrl, onUrlChange, songTitle }: YouTubePlayerProps) => {
   const [editing, setEditing] = useState(!youtubeUrl);
   const [input, setInput] = useState(youtubeUrl);
   const videoId = youtubeUrl ? extractVideoId(youtubeUrl) : null;
@@ -26,23 +27,35 @@ const YouTubePlayer = ({ youtubeUrl, onUrlChange }: YouTubePlayerProps) => {
     setEditing(false);
   };
 
+  const handleSearch = () => {
+    const query = encodeURIComponent(`${songTitle || ""} Linkin Park`);
+    window.open(`https://www.youtube.com/results?search_query=${query}`, "_blank");
+  };
+
   if (editing || !videoId) {
     return (
       <div className="border-b border-border p-4 bg-surface">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono-ui text-xs text-muted-foreground shrink-0">YOUTUBE</span>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
             placeholder="Cole o link do YouTube aqui..."
-            className="flex-1 bg-transparent border border-border px-2 py-1 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary"
+            className="flex-1 min-w-[200px] bg-transparent border border-border px-2 py-1 font-mono-ui text-xs text-foreground focus:outline-none focus:border-primary"
           />
           <button
             onClick={handleSave}
             className="px-3 py-1 font-mono-ui text-xs border border-primary text-primary hover:bg-primary/10"
           >
             OK
+          </button>
+          <button
+            onClick={handleSearch}
+            className="px-3 py-1 font-mono-ui text-xs border border-destructive text-destructive hover:bg-destructive/10"
+            title="Buscar no YouTube"
+          >
+            🔍 BUSCAR
           </button>
           {youtubeUrl && (
             <button
