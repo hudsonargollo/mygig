@@ -319,6 +319,16 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
             );
           })}
           <button
+            onClick={toggleEraserMode}
+            className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+              eraserMode
+                ? "border-destructive text-destructive bg-destructive/10"
+                : "border-border text-muted-foreground hover:text-accent"
+            }`}
+          >
+            ✕ LIMPAR
+          </button>
+          <button
             onClick={toggleLoopMode}
             className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
               loopMode
