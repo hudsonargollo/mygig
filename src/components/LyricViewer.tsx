@@ -253,14 +253,23 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
 
   const toggleVocalist = (v: Vocalist) => {
     setLoopMode(false);
+    setEraserMode(false);
     setPendingLoop(null);
     setActiveVocalist((prev) => (prev === v ? null : v));
   };
 
   const toggleLoopMode = () => {
     setActiveVocalist(null);
+    setEraserMode(false);
     setPendingLoop(null);
     setLoopMode((prev) => !prev);
+  };
+
+  const toggleEraserMode = () => {
+    setActiveVocalist(null);
+    setLoopMode(false);
+    setPendingLoop(null);
+    setEraserMode((prev) => !prev);
   };
 
   if (!song) {
