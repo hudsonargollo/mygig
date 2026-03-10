@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { Eraser } from "lucide-react";
 import type { Song } from "@/data/songs";
 import YouTubePlayer, { formatTime, parseTime } from "./YouTubePlayer";
 import type { LoopRegion } from "./YouTubePlayer";

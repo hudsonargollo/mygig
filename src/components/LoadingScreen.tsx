@@ -6,6 +6,7 @@ interface LoadingScreenProps {
 }
 
 const TITLE_TEXT = "LINKIN PARK - TOCA DO RAUL 21/03";
+const SUBTITLE_TEXT = "LINKIN PARK TRIBUTE - BY LADY ELEKTRA";
 
 const LoadingScreen = ({ onComplete }: LoadingScreenProps) => {
   const [typedText, setTypedText] = useState("");
