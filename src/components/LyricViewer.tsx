@@ -356,7 +356,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       {mode === "vocalist" && activeVocalist && (
         <div className={`px-6 py-2 text-xs font-mono-ui border-b border-border ${VOCALIST_COLORS[activeVocalist].text} bg-muted/30`}>
           ✎ Selecione texto para marcar como{" "}
-          {activeVocalist === "elektra" ? "LADY ELEKTRA" : activeVocalist === "chinoda" ? "HUDS CHINODA" : "LUAN DELSON"}.
+          {activeVocalist === "elektra" ? "LADY" : activeVocalist === "chinoda" ? "HUDS" : "LUAN"}.
           Clique duplo numa linha para limpar.
         </div>
       )}
