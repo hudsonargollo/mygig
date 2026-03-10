@@ -6,6 +6,7 @@ interface LoadingScreenProps {
 }
 
 const TITLE_TEXT = "LINKIN PARK - TOCA DO RAUL 21/03";
+const SUBTITLE_TEXT = "LINKIN PARK TRIBUTE - BY LADY ELEKTRA";
 
 const LoadingScreen = ({ onComplete }: LoadingScreenProps) => {
   const [typedText, setTypedText] = useState("");
@@ -116,6 +117,9 @@ const LoadingScreen = ({ onComplete }: LoadingScreenProps) => {
               className="inline-block w-[2px] h-4 bg-foreground ml-1 align-middle"
               style={{ opacity: showCursor ? 1 : 0 }}
             />
+          </div>
+          <div className="font-mono-body text-xs tracking-[0.2em] text-muted-foreground mt-3 opacity-70">
+            {SUBTITLE_TEXT}
           </div>
         </div>
       </div>
