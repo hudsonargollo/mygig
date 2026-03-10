@@ -143,6 +143,44 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       return;
     }
 
+    if (mode === "eraser") {
+      const eraseRanges: { lineIndex: number; startOffset: number; endOffset: number }[] = [];
+      for (let li = startLineIdx; li <= endLineIdx; li++) {
+        const lineEl = container.querySelector(`[data-line-index="${li}"]`);
+        if (!lineEl) continue;
+        const lineText = lineEl.textContent || "";
+        let startOffset = 0;
+        let endOffset = lineText.length;
+        if (li === startLineIdx) {
+          const preRange = document.createRange();
+          preRange.selectNodeContents(lineEl);
+          preRange.setEnd(range.startContainer, range.startOffset);
+          startOffset = preRange.toString().length;
+        }
+        if (li === endLineIdx) {
+          const preRange = document.createRange();
+          preRange.selectNodeContents(lineEl);
+          preRange.setEnd(range.endContainer, range.endOffset);
+          endOffset = preRange.toString().length;
+        }
+        if (startOffset < endOffset) {
+          eraseRanges.push({ lineIndex: li, startOffset, endOffset });
+        }
+      }
+      if (eraseRanges.length > 0) {
+        setAnnotations((prev) => {
+          let updated = [...prev];
+          for (const er of eraseRanges) {
+            const fakeAnn: TextAnnotation = { songId: song.id, lineIndex: er.lineIndex, startOffset: er.startOffset, endOffset: er.endOffset, vocalist: null };
+            updated = removeOverlap(updated, fakeAnn);
+          }
+          return updated;
+        });
+      }
+      selection.removeAllRanges();
+      return;
+    }
+
     if (mode === "vocalist" && activeVocalist) {
       const newAnnotations: TextAnnotation[] = [];
       for (let li = startLineIdx; li <= endLineIdx; li++) {
