@@ -108,9 +108,10 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
   const [pendingLoop, setPendingLoop] = useState<{ lineStart: number; lineEnd: number; label: string } | null>(null);
   const [loopStartInput, setLoopStartInput] = useState("0:00");
   const [loopEndInput, setLoopEndInput] = useState("0:30");
+  const [eraserMode, setEraserMode] = useState(false);
   const lyricsRef = useRef<HTMLDivElement>(null);
 
-  const mode: InteractionMode = loopMode ? "loop" : activeVocalist ? "vocalist" : null;
+  const mode: InteractionMode = eraserMode ? "eraser" : loopMode ? "loop" : activeVocalist ? "vocalist" : null;
 
   useEffect(() => { save(STORAGE_KEY, annotations); }, [annotations]);
   useEffect(() => { save(NOTES_KEY, notes); }, [notes]);
