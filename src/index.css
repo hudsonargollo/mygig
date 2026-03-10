@@ -1,105 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto+Mono:wght@300;400;500;700&family=Source+Code+Pro:wght@300;400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 240 7% 6%;
+    --foreground: 0 0% 92%;
+    --card: 240 5% 10%;
+    --card-foreground: 0 0% 92%;
+    --popover: 240 5% 10%;
+    --popover-foreground: 0 0% 92%;
+    --primary: 186 100% 50%;
+    --primary-foreground: 240 7% 6%;
+    --secondary: 64 100% 50%;
+    --secondary-foreground: 240 7% 6%;
+    --muted: 240 3% 15%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 0 0% 100%;
+    --accent-foreground: 240 7% 6%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 92%;
+    --border: 240 3% 18%;
+    --input: 240 3% 18%;
+    --ring: 186 100% 50%;
+    --radius: 0px;
+    --sidebar-background: 240 5% 10%;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 186 100% 50%;
+    --sidebar-primary-foreground: 240 7% 6%;
+    --sidebar-accent: 240 3% 15%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 240 3% 18%;
+    --sidebar-ring: 186 100% 50%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --cyan: 186 100% 50%;
+    --yellow: 64 100% 50%;
+    --surface: 240 5% 10%;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Source Code Pro', monospace;
   }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 30%);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 100%);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Bebas Neue', sans-serif;
+  }
+  .font-mono-body {
+    font-family: 'Roboto Mono', monospace;
+  }
+  .font-mono-ui {
+    font-family: 'Source Code Pro', monospace;
+  }
+}
+
+/* Glitch animation */
+@keyframes glitch-1 {
+  0%, 80% { clip-path: inset(0 0 0 0); transform: translate(0); }
+  82% { clip-path: inset(20% 0 30% 0); transform: translate(-8px, 2px); }
+  84% { clip-path: inset(50% 0 10% 0); transform: translate(5px, -1px); }
+  86% { clip-path: inset(10% 0 60% 0); transform: translate(-3px, 3px); }
+  88% { clip-path: inset(70% 0 5% 0); transform: translate(6px, -2px); }
+  90% { clip-path: inset(5% 0 80% 0); transform: translate(-4px, 1px); }
+  92% { clip-path: inset(40% 0 20% 0); transform: translate(7px, -3px); }
+  94% { clip-path: inset(60% 0 15% 0); transform: translate(-6px, 2px); }
+  96% { clip-path: inset(15% 0 45% 0); transform: translate(3px, -1px); }
+  98% { clip-path: inset(0 0 0 0); transform: translate(0); }
+  100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+}
+
+@keyframes glitch-2 {
+  0%, 80% { clip-path: inset(0 0 0 0); transform: translate(0); }
+  81% { clip-path: inset(30% 0 20% 0); transform: translate(5px, -2px); }
+  83% { clip-path: inset(60% 0 10% 0); transform: translate(-7px, 1px); }
+  85% { clip-path: inset(10% 0 50% 0); transform: translate(4px, 3px); }
+  87% { clip-path: inset(45% 0 25% 0); transform: translate(-5px, -1px); }
+  89% { clip-path: inset(80% 0 5% 0); transform: translate(8px, 2px); }
+  91% { clip-path: inset(25% 0 40% 0); transform: translate(-3px, -2px); }
+  93% { clip-path: inset(55% 0 20% 0); transform: translate(6px, 1px); }
+  95% { clip-path: inset(15% 0 60% 0); transform: translate(-4px, 3px); }
+  97% { clip-path: inset(0 0 0 0); transform: translate(0); }
+  100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+}
+
+@keyframes scanlines {
+  0%, 80% { opacity: 0; }
+  82% { opacity: 0.3; }
+  100% { opacity: 0; }
+}
+
+@keyframes blink-cursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
 }
