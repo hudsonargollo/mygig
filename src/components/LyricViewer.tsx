@@ -311,6 +311,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
       {showYouTube && (
         <YouTubePlayer
           youtubeUrl={currentYouTube}
+          songTitle={song.title}
           onUrlChange={(url) =>
             setYoutubeLinks((prev) => ({ ...prev, [song.id]: url }))
           }
