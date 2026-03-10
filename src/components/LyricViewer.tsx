@@ -422,6 +422,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-destructive bg-muted/30">
           ✕ Selecione texto para limpar marcações de vocalista.
         </div>
+      )}
       {mode === "loop" && !pendingLoop && (
         <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-primary bg-muted/30">
           🔁 Selecione um trecho da letra para criar um loop. Defina os timestamps depois.
