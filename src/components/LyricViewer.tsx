@@ -253,7 +253,7 @@ const LyricViewer = ({ song, songIndex }: LyricViewerProps) => {
         </div>
         <div className="flex gap-2 flex-wrap">
           {(["elektra", "chinoda", "luan"] as const).map((v) => {
-            const labels = { elektra: "LADY ELEKTRA", chinoda: "HUDS CHINODA", luan: "LUAN DELSON" };
+            const labels = { elektra: "LADY", chinoda: "HUDS", luan: "LUAN" };
             const colorKey = { elektra: "cyan", chinoda: "yellow", luan: "orange" };
             const c = colorKey[v];
             return (
