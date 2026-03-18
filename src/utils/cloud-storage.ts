@@ -1,17 +1,16 @@
-// Simple cloud storage for persistent annotations
-// Uses JSONBin.io as a free cloud storage service
-
-const JSONBIN_API_URL = 'https://api.jsonbin.io/v3/b';
-const JSONBIN_MASTER_KEY = '$2a$10$8K9vN2mL4pQ7xR5tY6wE8uF3gH1jS9dA2bC7eM6nP0qW8vX4zL5k'; // Public read-only key
-
-export interface CloudData {
+// Database service for Cloudflare D1
+export interface DatabaseData {
   annotations: any[];
   notes: Record<string, string>;
   youtubeLinks: Record<string, string>;
   loops: any[];
   customLyrics: Record<string, string>;
-  lastUpdated: string;
-  version: string;
+  timings: Record<string, TimingData[]>;
+}
+
+export interface TimingData {
+  lineIndex: number;
+  timestampMs: number;
 }
 
 // Generate a unique user ID based on browser fingerprint
@@ -32,64 +31,46 @@ const getUserId = (): string => {
   return userId;
 };
 
-// Save data to cloud
-export const saveToCloud = async (data: CloudData): Promise<{ success: boolean; binId?: string; error?: string }> => {
+const API_BASE = '/api/database';
+
+// Save data to D1 database
+export const saveToDatabase = async (data: DatabaseData): Promise<{ success: boolean; error?: string }> => {
   try {
     const userId = getUserId();
-    const payload = {
-      ...data,
-      userId,
-      lastUpdated: new Date().toISOString(),
-      version: '1.0'
-    };
-
-    // Try to update existing bin first
-    const existingBinId = localStorage.getItem('gigsprompter-bin-id');
     
-    if (existingBinId) {
-      try {
-        const updateResponse = await fetch(`${JSONBIN_API_URL}/${existingBinId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_MASTER_KEY,
-            'X-Bin-Name': `gigsprompter-${userId}`
-          },
-          body: JSON.stringify(payload)
+    // Save annotations
+    await fetch(`${API_BASE}/annotations?userId=${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data.annotations)
+    });
+    
+    // Save user data (notes, youtube links, etc.)
+    await fetch(`${API_BASE}/userdata?userId=${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        notes: data.notes,
+        youtube_links: data.youtubeLinks,
+        loops: data.loops,
+        custom_lyrics: data.customLyrics
+      })
+    });
+    
+    // Save timing data for each song
+    for (const [songId, timings] of Object.entries(data.timings)) {
+      if (timings.length > 0) {
+        await fetch(`${API_BASE}/timing?userId=${userId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ songId, timings })
         });
-
-        if (updateResponse.ok) {
-          return { success: true, binId: existingBinId };
-        }
-      } catch (error) {
-        console.warn('Failed to update existing bin, creating new one:', error);
       }
     }
 
-    // Create new bin
-    const response = await fetch(JSONBIN_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_MASTER_KEY,
-        'X-Bin-Name': `gigsprompter-${userId}`,
-        'X-Bin-Private': 'false'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    const binId = result.metadata.id;
-    
-    localStorage.setItem('gigsprompter-bin-id', binId);
-    return { success: true, binId };
-
+    return { success: true };
   } catch (error) {
-    console.error('Failed to save to cloud:', error);
+    console.error('Failed to save to database:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
@@ -97,38 +78,35 @@ export const saveToCloud = async (data: CloudData): Promise<{ success: boolean; 
   }
 };
 
-// Load data from cloud
-export const loadFromCloud = async (binId?: string): Promise<{ success: boolean; data?: CloudData; error?: string }> => {
+// Load data from D1 database
+export const loadFromDatabase = async (): Promise<{ success: boolean; data?: DatabaseData; error?: string }> => {
   try {
-    const targetBinId = binId || localStorage.getItem('gigsprompter-bin-id');
-    
-    if (!targetBinId) {
-      return { success: false, error: 'No cloud backup found' };
-    }
-
-    const response = await fetch(`${JSONBIN_API_URL}/${targetBinId}/latest`, {
-      headers: {
-        'X-Master-Key': JSONBIN_MASTER_KEY
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    const data = result.record;
-
-    // Verify this is our data
     const userId = getUserId();
-    if (data.userId && data.userId !== userId) {
-      console.warn('Cloud data belongs to different user');
-    }
+    
+    // Load annotations
+    const annotationsResponse = await fetch(`${API_BASE}/annotations?userId=${userId}`);
+    const annotations = await annotationsResponse.json();
+    
+    // Load user data
+    const userDataResponse = await fetch(`${API_BASE}/userdata?userId=${userId}`);
+    const userData = await userDataResponse.json();
+    
+    // Load timing data (we'll need to get all songs)
+    const timings: Record<string, TimingData[]> = {};
+    // For now, we'll load timing data on demand per song
+    
+    const data: DatabaseData = {
+      annotations: annotations || [],
+      notes: userData.notes || {},
+      youtubeLinks: userData.youtube_links || {},
+      loops: userData.loops || [],
+      customLyrics: userData.custom_lyrics || {},
+      timings
+    };
 
     return { success: true, data };
-
   } catch (error) {
-    console.error('Failed to load from cloud:', error);
+    console.error('Failed to load from database:', error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
@@ -136,12 +114,45 @@ export const loadFromCloud = async (binId?: string): Promise<{ success: boolean;
   }
 };
 
-// Get shareable backup ID
+// Load timing data for a specific song
+export const loadTimingData = async (songId: string): Promise<TimingData[]> => {
+  try {
+    const userId = getUserId();
+    const response = await fetch(`${API_BASE}/timing?userId=${userId}&songId=${songId}`);
+    const timings = await response.json();
+    
+    return timings.map((t: any) => ({
+      lineIndex: t.line_index,
+      timestampMs: t.timestamp_ms
+    }));
+  } catch (error) {
+    console.error('Failed to load timing data:', error);
+    return [];
+  }
+};
+
+// Save timing data for a specific song
+export const saveTimingData = async (songId: string, timings: TimingData[]): Promise<boolean> => {
+  try {
+    const userId = getUserId();
+    await fetch(`${API_BASE}/timing?userId=${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ songId, timings })
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to save timing data:', error);
+    return false;
+  }
+};
+
+// Get user backup ID (for sharing)
 export const getBackupId = (): string | null => {
-  return localStorage.getItem('gigsprompter-bin-id');
+  return getUserId();
 };
 
 // Set backup ID (for restoring from shared ID)
-export const setBackupId = (binId: string): void => {
-  localStorage.setItem('gigsprompter-bin-id', binId);
+export const setBackupId = (userId: string): void => {
+  localStorage.setItem('gigsprompter-user-id', userId);
 };

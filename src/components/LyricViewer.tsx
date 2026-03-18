@@ -4,7 +4,8 @@ import type { Song } from "@/data/songs";
 import YouTubePlayer, { formatTime, parseTime } from "./YouTubePlayer";
 import type { LoopRegion } from "./YouTubePlayer";
 import { CloudBackup } from "./CloudBackup";
-import { saveToCloud, loadFromCloud, type CloudData } from "@/utils/cloud-storage";
+import { AudioSync, type TimingData } from "./AudioSync";
+import { saveToDatabase, loadFromDatabase, loadTimingData, saveTimingData, type DatabaseData } from "@/utils/cloud-storage";
 
 type Vocalist = "elektra" | "chinoda" | "luan";
 type VocalistOrAll = Vocalist | "all";
@@ -208,6 +209,8 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const [loopLabelInput, setLoopLabelInput] = useState("");
   const [eraserMode, setEraserMode] = useState(false);
   const [showCloudBackup, setShowCloudBackup] = useState(false);
+  const [showAudioSync, setShowAudioSync] = useState(false);
+  const [audioTimings, setAudioTimings] = useState<Record<string, TimingData[]>>({});
   
   // Performance mode states (formerly karaoke)
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -344,10 +347,16 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setCurrentLineIndex(0);
     
     if (newMode) {
-      // Entering performance mode - collapse sidebar if not already collapsed
+      // Entering performance mode - collapse all panels and sidebar
       if (!sidebarCollapsed) {
         onSidebarToggle(); // Auto-collapse sidebar
       }
+      // Close all panels
+      setShowNotes(false);
+      setShowLyricsEditor(false);
+      setShowYouTube(false);
+      setShowCloudBackup(false);
+      setShowAudioSync(false);
     }
   };
 
@@ -433,8 +442,39 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     return customLyrics[song.id] || song.lyrics;
   };
 
+  // Audio sync functions
+  const handleTimingUpdate = useCallback((timings: TimingData[]) => {
+    if (!song) return;
+    
+    setAudioTimings(prev => ({
+      ...prev,
+      [song.id]: timings
+    }));
+    
+    // Save to database
+    saveTimingData(song.id, timings);
+  }, [song]);
+
+  const handleCurrentLineChange = useCallback((lineIndex: number) => {
+    setCurrentLineIndex(lineIndex);
+  }, []);
+
+  // Load timing data when song changes
+  useEffect(() => {
+    if (song && !audioTimings[song.id]) {
+      loadTimingData(song.id).then(timings => {
+        if (timings.length > 0) {
+          setAudioTimings(prev => ({
+            ...prev,
+            [song.id]: timings
+          }));
+        }
+      });
+    }
+  }, [song, audioTimings]);
+
   // Cloud backup functions
-  const getCurrentCloudData = useCallback((): CloudData => {
+  const getCurrentCloudData = useCallback((): DatabaseData => {
     // All annotations are user annotations now (no defaults to filter)
     return {
       annotations,
@@ -442,17 +482,17 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       youtubeLinks,
       loops,
       customLyrics,
-      lastUpdated: new Date().toISOString(),
-      version: '1.0'
+      timings: audioTimings
     };
-  }, [annotations, notes, youtubeLinks, loops, customLyrics]);
+  }, [annotations, notes, youtubeLinks, loops, customLyrics, audioTimings]);
 
-  const handleCloudRestore = useCallback((data: CloudData) => {
+  const handleCloudRestore = useCallback((data: DatabaseData) => {
     // Restore all data from cloud
     setNotes(data.notes || {});
     setYoutubeLinks(data.youtubeLinks || {});
     setLoops(data.loops || []);
     setCustomLyrics(data.customLyrics || {});
+    setAudioTimings(data.timings || {});
     
     // Set annotations directly (no defaults to merge)
     setAnnotations(data.annotations || []);
@@ -470,7 +510,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     const interval = setInterval(async () => {
       try {
         const data = getCurrentCloudData();
-        await saveToCloud(data);
+        await saveToDatabase(data);
         console.log('Auto-backup completed');
       } catch (error) {
         console.warn('Auto-backup failed:', error);
@@ -823,7 +863,18 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
             }`}
             title="Cloud backup & restore"
           >
-            ☁️ BACKUP
+            💾 DATABASE
+          </button>
+          <button
+            onClick={() => setShowAudioSync(!showAudioSync)}
+            className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+              showAudioSync
+                ? "border-purple-500 text-purple-500 bg-purple-500/10"
+                : "border-border text-muted-foreground hover:text-accent"
+            }`}
+            title="Audio sync & timing"
+          >
+            🎵 AUDIO SYNC
           </button>
         </div>
       </div>
@@ -1104,10 +1155,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 </div>
               </div>
 
-              {/* Exit Button - More visible */}
+              {/* Exit Button - More visible with higher z-index */}
               <button
                 onClick={togglePerformanceMode}
-                className="absolute top-4 right-4 w-12 h-12 rounded-full bg-red-600/30 text-red-300 hover:bg-red-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-xl font-bold border border-red-500/50"
+                className="absolute top-4 right-4 w-12 h-12 rounded-full bg-red-600/30 text-red-300 hover:bg-red-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-xl font-bold border border-red-500/50 z-50"
                 title="Exit Performance Mode (ESC)"
               >
                 ×
@@ -1330,6 +1381,25 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
               <CloudBackup
                 onRestore={handleCloudRestore}
                 getCurrentData={getCurrentCloudData}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Audio Sync Panel */}
+        {showAudioSync && (
+          <div className="w-96 border-l border-border bg-surface flex flex-col shrink-0">
+            <div className="p-4 border-b border-border">
+              <span className="font-mono-ui text-xs text-muted-foreground">AUDIO SYNC</span>
+            </div>
+            <div className="flex-1 p-4">
+              <AudioSync
+                songId={song.id}
+                songTitle={song.title}
+                lyrics={getCurrentLyrics()}
+                onTimingUpdate={handleTimingUpdate}
+                onCurrentLineChange={handleCurrentLineChange}
+                currentLineIndex={currentLineIndex}
               />
             </div>
           </div>

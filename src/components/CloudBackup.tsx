@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { saveToCloud, loadFromCloud, getBackupId, setBackupId, type CloudData } from "@/utils/cloud-storage";
+import { saveToDatabase, loadFromDatabase, getBackupId, setBackupId, type DatabaseData } from "@/utils/cloud-storage";
 
 interface CloudBackupProps {
-  onRestore: (data: CloudData) => void;
-  getCurrentData: () => CloudData;
+  onRestore: (data: DatabaseData) => void;
+  getCurrentData: () => DatabaseData;
 }
 
 export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => {
@@ -21,12 +21,12 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
 
     try {
       const data = getCurrentData();
-      const result = await saveToCloud(data);
+      const result = await saveToDatabase(data);
 
       if (result.success) {
         setMessage({
           type: 'success',
-          text: `Backup saved! ID: ${result.binId}`
+          text: `Backup saved to Cloudflare database!`
         });
       } else {
         setMessage({
@@ -44,21 +44,24 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
     }
   };
 
-  const handleRestore = async (binId?: string) => {
+  const handleRestore = async (userId?: string) => {
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const result = await loadFromCloud(binId);
+      // If userId provided, temporarily switch to that user
+      const originalUserId = getBackupId();
+      if (userId) {
+        setBackupId(userId);
+      }
+
+      const result = await loadFromDatabase();
 
       if (result.success && result.data) {
         onRestore(result.data);
-        if (binId) {
-          setBackupId(binId);
-        }
         setMessage({
           type: 'success',
-          text: 'Data restored successfully!'
+          text: 'Data restored successfully from database!'
         });
         setShowRestore(false);
         setRestoreId("");
@@ -67,6 +70,10 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
           type: 'error',
           text: `Restore failed: ${result.error}`
         });
+        // Restore original user ID if restore failed
+        if (userId && originalUserId) {
+          setBackupId(originalUserId);
+        }
       }
     } catch (error) {
       setMessage({
@@ -83,7 +90,7 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
   return (
     <div className="space-y-4 p-4 border border-border rounded-lg bg-surface">
       <div className="flex items-center justify-between">
-        <h3 className="font-mono-ui text-sm text-foreground">CLOUD BACKUP</h3>
+        <h3 className="font-mono-ui text-sm text-foreground">DATABASE BACKUP</h3>
         <div className="flex gap-2">
           <Button
             onClick={handleBackup}
@@ -92,7 +99,7 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
             variant="outline"
             className="font-mono-ui text-xs"
           >
-            {isLoading ? "..." : "☁️ BACKUP"}
+            {isLoading ? "..." : "💾 BACKUP"}
           </Button>
           <Button
             onClick={() => setShowRestore(!showRestore)}
@@ -107,9 +114,9 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
 
       {currentBackupId && (
         <div className="text-xs text-muted-foreground">
-          <strong>Your Backup ID:</strong> {currentBackupId}
+          <strong>Your User ID:</strong> {currentBackupId}
           <br />
-          <span className="text-green-400">Save this ID to restore your data on any device!</span>
+          <span className="text-green-400">Share this ID with band members for synchronized data!</span>
         </div>
       )}
 
@@ -117,7 +124,7 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
         <div className="space-y-3 border-t border-border pt-3">
           <div className="flex gap-2">
             <Input
-              placeholder="Enter backup ID to restore..."
+              placeholder="Enter user ID to restore from..."
               value={restoreId}
               onChange={(e) => setRestoreId(e.target.value)}
               className="font-mono-ui text-xs"
@@ -132,17 +139,15 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
             </Button>
           </div>
           
-          {currentBackupId && (
-            <Button
-              onClick={() => handleRestore()}
-              disabled={isLoading}
-              size="sm"
-              variant="outline"
-              className="w-full font-mono-ui text-xs"
-            >
-              RESTORE FROM MY BACKUP
-            </Button>
-          )}
+          <Button
+            onClick={() => handleRestore()}
+            disabled={isLoading}
+            size="sm"
+            variant="outline"
+            className="w-full font-mono-ui text-xs"
+          >
+            RESTORE MY DATA
+          </Button>
         </div>
       )}
 
@@ -155,11 +160,12 @@ export const CloudBackup = ({ onRestore, getCurrentData }: CloudBackupProps) => 
       )}
 
       <div className="text-xs text-muted-foreground">
-        <strong>How it works:</strong>
-        <br />• Backup saves all your annotations, notes, and settings to the cloud
-        <br />• Get a unique ID to restore your data on any device
-        <br />• Works even if you clear browser data or switch computers
-        <br />• Share your backup ID with band members for synchronized annotations
+        <strong>Cloudflare Database:</strong>
+        <br />• Automatic backup to Cloudflare D1 database
+        <br />• Persistent storage with high availability
+        <br />• Share user ID with band members for sync
+        <br />• Includes annotations, notes, audio timing, and settings
+        <br />• Much faster and more reliable than external services
       </div>
     </div>
   );

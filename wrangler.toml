@@ -1,8 +1,19 @@
 name = "gigsprompter"
 compatibility_date = "2024-03-18"
 
+# D1 Database configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "gigsprompter-db"
+database_id = "b383cae1-f8f1-47e3-bc9f-2bde986b0f24"
+
 [env.production]
 name = "gigsprompter"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "gigsprompter-db"
+database_id = "b383cae1-f8f1-47e3-bc9f-2bde986b0f24"
 
 [[env.production.pages_build_output_dir]]
 directory = "dist"
