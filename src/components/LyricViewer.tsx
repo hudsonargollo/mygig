@@ -4,7 +4,7 @@ import type { Song } from "@/data/songs";
 import YouTubePlayer, { formatTime, parseTime } from "./YouTubePlayer";
 import type { LoopRegion } from "./YouTubePlayer";
 import { CloudBackup } from "./CloudBackup";
-import { AudioSync, type TimingData } from "./AudioSync";
+import { AudioSync, type TimingData, type AudioControls } from "./AudioSync";
 import { saveToDatabase, loadFromDatabase, loadTimingData, saveTimingData, type DatabaseData } from "@/utils/cloud-storage";
 
 type Vocalist = "elektra" | "chinoda" | "luan";
@@ -211,6 +211,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const [showCloudBackup, setShowCloudBackup] = useState(false);
   const [showAudioSync, setShowAudioSync] = useState(false);
   const [audioTimings, setAudioTimings] = useState<Record<string, TimingData[]>>({});
+  const [audioControls, setAudioControls] = useState<AudioControls | null>(null);
   
   // Performance mode states (formerly karaoke)
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -458,6 +459,39 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const handleCurrentLineChange = useCallback((lineIndex: number) => {
     setCurrentLineIndex(lineIndex);
   }, []);
+
+  // Audio controls callback
+  const handleAudioReady = useCallback((controls: AudioControls) => {
+    setAudioControls(controls);
+  }, []);
+
+  // Auto-sync in performance mode when audio is playing
+  useEffect(() => {
+    if (!performanceMode || !audioControls?.hasAudio || !audioControls.isPlaying) return;
+    
+    const songTimings = audioTimings[song?.id || ''];
+    if (!songTimings || songTimings.length === 0) return;
+
+    const interval = setInterval(() => {
+      const currentMs = audioControls.currentTime;
+      let newLineIndex = 0;
+      
+      // Find the current line based on audio timing
+      for (let i = 0; i < songTimings.length; i++) {
+        if (currentMs >= songTimings[i].timestampMs) {
+          newLineIndex = songTimings[i].lineIndex;
+        } else {
+          break;
+        }
+      }
+      
+      if (newLineIndex !== currentLineIndex) {
+        setCurrentLineIndex(newLineIndex);
+      }
+    }, 100); // Check every 100ms for smooth sync
+
+    return () => clearInterval(interval);
+  }, [performanceMode, audioControls, audioTimings, song?.id, currentLineIndex]);
 
   // Load timing data when song changes
   useEffect(() => {
@@ -1164,11 +1198,38 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 ×
               </button>
 
+              {/* Audio Controls - Only show if audio is available */}
+              {audioControls?.hasAudio && (
+                <div className="absolute top-4 left-4 flex gap-2 z-40">
+                  <button
+                    onClick={() => {
+                      if (audioControls.isPlaying) {
+                        audioControls.pause();
+                      } else {
+                        audioControls.play();
+                      }
+                    }}
+                    className="w-12 h-12 rounded-full bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-blue-500/50"
+                    title={audioControls.isPlaying ? "Pause Audio" : "Play Audio"}
+                  >
+                    {audioControls.isPlaying ? "⏸️" : "▶️"}
+                  </button>
+                  
+                  <button
+                    onClick={() => audioControls.setMuted(!audioControls.isPlaying)}
+                    className="w-12 h-12 rounded-full bg-gray-600/30 text-gray-300 hover:bg-gray-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-gray-500/50"
+                    title="Toggle Mute"
+                  >
+                    🔊
+                  </button>
+                </div>
+              )}
+
               {/* Help text - Only visible briefly on hover */}
-              <div className="absolute top-4 left-4 opacity-0 hover:opacity-100 transition-all duration-300">
-                <div className="text-xs text-gray-400 bg-black/70 px-3 py-2 rounded">
-                  <div>← → Navigate lines</div>
-                  <div>ESC Exit mode</div>
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 opacity-0 hover:opacity-100 transition-all duration-300">
+                <div className="text-xs text-gray-400 bg-black/70 px-3 py-2 rounded text-center">
+                  <div>← → Navigate lines • ESC Exit mode</div>
+                  {audioControls?.hasAudio && <div>Audio: Play/Pause • Auto-sync available</div>}
                   <div>Click sides to navigate</div>
                 </div>
               </div>
@@ -1197,10 +1258,19 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 />
               </div>
 
-              {/* Minimal progress indicator - Only visible on hover */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 hover:opacity-100 transition-all duration-300">
-                <div className="text-xs text-gray-500 bg-black/50 px-2 py-1 rounded">
-                  {currentLineIndex + 1} / {currentLyrics.split("\n").filter(line => line.trim() !== "").length}
+              {/* Minimal progress indicator - Only visible on hover or when audio is playing */}
+              <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
+                audioControls?.hasAudio && audioControls.isPlaying ? 'opacity-100' : 'opacity-0 hover:opacity-100'
+              }`}>
+                <div className="text-xs text-gray-500 bg-black/50 px-2 py-1 rounded flex items-center gap-2">
+                  <span>{currentLineIndex + 1} / {currentLyrics.split("\n").filter(line => line.trim() !== "").length}</span>
+                  {audioControls?.hasAudio && (
+                    <>
+                      <span>•</span>
+                      <span>{Math.floor(audioControls.currentTime / 1000 / 60)}:{String(Math.floor(audioControls.currentTime / 1000) % 60).padStart(2, '0')}</span>
+                      {audioControls.isPlaying && <span className="animate-pulse">🎵</span>}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1400,6 +1470,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 onTimingUpdate={handleTimingUpdate}
                 onCurrentLineChange={handleCurrentLineChange}
                 currentLineIndex={currentLineIndex}
+                onAudioReady={handleAudioReady}
               />
             </div>
           </div>

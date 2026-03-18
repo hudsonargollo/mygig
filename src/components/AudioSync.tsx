@@ -11,6 +11,19 @@ interface AudioSyncProps {
   onTimingUpdate: (timings: TimingData[]) => void;
   onCurrentLineChange: (lineIndex: number) => void;
   currentLineIndex: number;
+  // Performance mode integration
+  onAudioReady?: (audioControls: AudioControls) => void;
+}
+
+export interface AudioControls {
+  play: () => void;
+  pause: () => void;
+  seekTo: (timeMs: number) => void;
+  setMuted: (muted: boolean) => void;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  hasAudio: boolean;
 }
 
 export interface TimingData {
@@ -24,7 +37,8 @@ export const AudioSync = ({
   lyrics, 
   onTimingUpdate, 
   onCurrentLineChange,
-  currentLineIndex 
+  currentLineIndex,
+  onAudioReady
 }: AudioSyncProps) => {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>("");
@@ -41,6 +55,39 @@ export const AudioSync = ({
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const lines = lyrics.split("\n").filter(line => line.trim() !== "");
+
+  // Expose audio controls to parent component
+  useEffect(() => {
+    if (onAudioReady && audioRef.current) {
+      const audioControls: AudioControls = {
+        play: () => {
+          audioRef.current?.play();
+          setIsPlaying(true);
+        },
+        pause: () => {
+          audioRef.current?.pause();
+          setIsPlaying(false);
+        },
+        seekTo: (timeMs: number) => {
+          if (audioRef.current) {
+            audioRef.current.currentTime = timeMs / 1000;
+            setCurrentTime(timeMs);
+          }
+        },
+        setMuted: (muted: boolean) => {
+          if (audioRef.current) {
+            audioRef.current.muted = muted;
+            setIsMuted(muted);
+          }
+        },
+        isPlaying,
+        currentTime,
+        duration,
+        hasAudio: !!audioFile
+      };
+      onAudioReady(audioControls);
+    }
+  }, [onAudioReady, audioFile, isPlaying, currentTime, duration]);
 
   // Load audio file
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,63 +226,85 @@ export const AudioSync = ({
 
   // AI-powered timestamp generation
   const generateAITimestamps = async () => {
-    if (!audioFile) {
-      setMessage({ type: 'error', text: 'Please upload an audio file first' });
-      return;
-    }
-
     setIsGeneratingAI(true);
     setMessage({ type: 'success', text: 'Generating AI timestamps... This may take a moment.' });
 
     try {
-      // Estimate song duration and generate timestamps
-      const estimatedDuration = duration || 180000; // Default 3 minutes if unknown
+      // Wait for audio metadata to load if not already loaded
+      const audio = audioRef.current;
+      if (!audio) {
+        throw new Error('No audio file loaded');
+      }
+
+      // Ensure we have duration
+      let audioDuration = duration;
+      if (!audioDuration && audio.duration) {
+        audioDuration = audio.duration * 1000;
+        setDuration(audioDuration);
+      }
+      
+      // If still no duration, use a reasonable default based on lyrics count
+      if (!audioDuration) {
+        // Estimate ~3-4 seconds per line as a baseline
+        audioDuration = lines.length * 3500;
+        setMessage({ 
+          type: 'success', 
+          text: `Using estimated duration (${Math.round(audioDuration/1000)}s). Upload audio file for better accuracy.` 
+        });
+      }
+
       const linesCount = lines.length;
       
-      // Simple AI-like algorithm: distribute lines evenly with some variation
-      const baseInterval = estimatedDuration / linesCount;
+      // Improved AI-like algorithm
       const generatedTimings: TimingData[] = [];
+      let currentTime = 0;
       
       for (let i = 0; i < linesCount; i++) {
-        const line = lines[i];
-        let timestamp = i * baseInterval;
+        const line = lines[i].trim();
         
-        // Add variation based on line content
+        // Base timing calculation
+        let lineInterval = audioDuration / linesCount;
+        
+        // Adjust timing based on line content
         if (line.startsWith('[') && line.endsWith(']')) {
-          // Section headers get a bit more space before
-          timestamp += baseInterval * 0.2;
-        } else if (line.length > 50) {
-          // Longer lines get slightly more time
-          timestamp += baseInterval * 0.1;
+          // Section headers - add pause before and shorter duration
+          if (i > 0) currentTime += lineInterval * 0.3; // Pause before section
+          lineInterval *= 0.5; // Shorter duration for section header
+        } else if (line.length === 0) {
+          // Empty lines - minimal time
+          lineInterval *= 0.1;
+        } else if (line.length > 60) {
+          // Long lines - more time
+          lineInterval *= 1.3;
+        } else if (line.length < 20) {
+          // Short lines - less time
+          lineInterval *= 0.8;
         }
         
-        // Add some randomness to make it more natural (±10%)
-        const variation = (Math.random() - 0.5) * baseInterval * 0.2;
-        timestamp += variation;
-        
-        // Ensure timestamps are in order
-        if (i > 0 && timestamp <= generatedTimings[i - 1].timestampMs) {
-          timestamp = generatedTimings[i - 1].timestampMs + 1000; // At least 1 second apart
-        }
+        // Add some natural variation (±15%)
+        const variation = (Math.random() - 0.5) * lineInterval * 0.3;
+        currentTime += variation;
         
         generatedTimings.push({
           lineIndex: i,
-          timestampMs: Math.max(0, timestamp)
+          timestampMs: Math.max(0, Math.round(currentTime))
         });
+        
+        currentTime += lineInterval;
       }
       
       setTimings(generatedTimings);
       onTimingUpdate(generatedTimings);
       setMessage({ 
         type: 'success', 
-        text: `Generated ${generatedTimings.length} AI timestamps. Review and adjust as needed.` 
+        text: `Generated ${generatedTimings.length} AI timestamps (${Math.round(audioDuration/1000)}s total). Review and adjust as needed.` 
       });
       
     } catch (error) {
       console.error('AI timestamp generation failed:', error);
       setMessage({ 
         type: 'error', 
-        text: 'Failed to generate AI timestamps. Try manual recording instead.' 
+        text: 'Failed to generate AI timestamps. Try uploading an audio file first or use manual recording.' 
       });
     } finally {
       setIsGeneratingAI(false);
