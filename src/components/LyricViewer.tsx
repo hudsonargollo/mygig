@@ -264,11 +264,33 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   // YouTube time update handler
   const handleYouTubeTimeUpdate = (currentTime: number) => {
     setYoutubeCurrentTime(currentTime);
+    
+    // Auto-sync lyrics with YouTube in performance mode
+    if (performanceMode && song) {
+      const songTimings = audioTimings[song.id];
+      if (songTimings && songTimings.length > 0) {
+        const currentMs = currentTime * 1000; // Convert to milliseconds
+        let newLineIndex = 0;
+        
+        // Find the current line based on YouTube timing
+        for (let i = 0; i < songTimings.length; i++) {
+          if (currentMs >= songTimings[i].timestampMs) {
+            newLineIndex = songTimings[i].lineIndex;
+          } else {
+            break;
+          }
+        }
+        
+        if (newLineIndex !== currentLineIndex) {
+          setCurrentLineIndex(newLineIndex);
+        }
+      }
+    }
   };
 
   // YouTube play state handler  
   const handleYouTubePlayStateChange = (playing: boolean) => {
-    // No auto sync in pure performance mode
+    // Could be used for additional sync logic if needed
   };
 
   // Keyboard shortcuts for lyrics editor
@@ -948,7 +970,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       </div>
       )}
 
-      {/* YouTube Player - Hidden in performance mode */}
+      {/* YouTube Player - Show in performance mode if timing data exists */}
       {showYouTube && !performanceMode && (
         <YouTubePlayer
           youtubeUrl={currentYouTube}
@@ -959,6 +981,21 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           onTimeUpdate={handleYouTubeTimeUpdate}
           onPlayStateChange={handleYouTubePlayStateChange}
         />
+      )}
+
+      {/* Hidden YouTube Player for performance mode sync */}
+      {performanceMode && currentYouTube && audioTimings[song.id]?.length > 0 && (
+        <div className="hidden">
+          <YouTubePlayer
+            youtubeUrl={currentYouTube}
+            songTitle={song.title}
+            onUrlChange={(url) => setYoutubeLinks((prev) => ({ ...prev, [song.id]: url }))}
+            activeLoop={activeLoop}
+            onClearLoop={() => setActiveLoop(null)}
+            onTimeUpdate={handleYouTubeTimeUpdate}
+            onPlayStateChange={handleYouTubePlayStateChange}
+          />
+        </div>
       )}
 
       {/* Pending loop dialog - Hidden in performance mode */}
@@ -1232,34 +1269,46 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 ×
               </button>
 
-              {/* Audio Controls - Only show if audio is available */}
-              {audioControls?.hasAudio && (
+              {/* Audio/YouTube Controls - Show if audio or YouTube with timing is available */}
+              {(audioControls?.hasAudio || (currentYouTube && audioTimings[song.id]?.length > 0)) && (
                 <div className="absolute top-4 left-4 flex gap-2 z-40">
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (audioControls.isPlaying) {
-                          audioControls.pause();
-                        } else {
-                          await audioControls.play();
-                        }
-                      } catch (error) {
-                        console.error('Performance mode audio error:', error);
-                      }
-                    }}
-                    className="w-12 h-12 rounded-full bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-blue-500/50"
-                    title={audioControls.isPlaying ? "Pause Audio" : "Play Audio"}
-                  >
-                    {audioControls.isPlaying ? "⏸️" : "▶️"}
-                  </button>
+                  {/* Audio Controls */}
+                  {audioControls?.hasAudio && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          try {
+                            if (audioControls.isPlaying) {
+                              audioControls.pause();
+                            } else {
+                              await audioControls.play();
+                            }
+                          } catch (error) {
+                            console.error('Performance mode audio error:', error);
+                          }
+                        }}
+                        className="w-12 h-12 rounded-full bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-blue-500/50"
+                        title={audioControls.isPlaying ? "Pause Audio" : "Play Audio"}
+                      >
+                        {audioControls.isPlaying ? "⏸️" : "▶️"}
+                      </button>
+                      
+                      <button
+                        onClick={() => audioControls.setMuted(!audioControls.isMuted)}
+                        className="w-12 h-12 rounded-full bg-gray-600/30 text-gray-300 hover:bg-gray-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-gray-500/50"
+                        title="Toggle Mute"
+                      >
+                        {audioControls.isMuted ? "🔇" : "🔊"}
+                      </button>
+                    </>
+                  )}
                   
-                  <button
-                    onClick={() => audioControls.setMuted(!audioControls.isMuted)}
-                    className="w-12 h-12 rounded-full bg-gray-600/30 text-gray-300 hover:bg-gray-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-gray-500/50"
-                    title="Toggle Mute"
-                  >
-                    {audioControls.isMuted ? "🔇" : "🔊"}
-                  </button>
+                  {/* YouTube Sync Indicator */}
+                  {!audioControls?.hasAudio && currentYouTube && audioTimings[song.id]?.length > 0 && (
+                    <div className="w-12 h-12 rounded-full bg-red-600/30 text-red-300 border border-red-500/50 flex items-center justify-center text-lg font-bold" title="YouTube Sync Available">
+                      ▶️
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1268,6 +1317,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 <div className="text-xs text-gray-400 bg-black/70 px-3 py-2 rounded text-center">
                   <div>← → Navigate lines • ESC Exit mode</div>
                   {audioControls?.hasAudio && <div>Audio: Play/Pause • Auto-sync available</div>}
+                  {!audioControls?.hasAudio && currentYouTube && audioTimings[song.id]?.length > 0 && (
+                    <div>YouTube: Auto-sync with timing data</div>
+                  )}
                   <div>Click sides to navigate</div>
                 </div>
               </div>
@@ -1296,17 +1348,25 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 />
               </div>
 
-              {/* Minimal progress indicator - Only visible on hover or when audio is playing */}
+              {/* Minimal progress indicator - Show audio or YouTube time */}
               <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
-                audioControls?.hasAudio && audioControls.isPlaying ? 'opacity-100' : 'opacity-0 hover:opacity-100'
+                (audioControls?.hasAudio && audioControls.isPlaying) || 
+                (currentYouTube && audioTimings[song.id]?.length > 0) ? 'opacity-100' : 'opacity-0 hover:opacity-100'
               }`}>
                 <div className="text-xs text-gray-500 bg-black/50 px-2 py-1 rounded flex items-center gap-2">
                   <span>{currentLineIndex + 1} / {currentLyrics.split("\n").filter(line => line.trim() !== "").length}</span>
                   {audioControls?.hasAudio && (
                     <>
                       <span>•</span>
-                      <span>{Math.floor(audioControls.currentTime / 1000 / 60)}:{String(Math.floor(audioControls.currentTime / 1000) % 60).padStart(2, '0')}</span>
+                      <span>Audio: {Math.floor(audioControls.currentTime / 1000 / 60)}:{String(Math.floor(audioControls.currentTime / 1000) % 60).padStart(2, '0')}</span>
                       {audioControls.isPlaying && <span className="animate-pulse">🎵</span>}
+                    </>
+                  )}
+                  {!audioControls?.hasAudio && currentYouTube && audioTimings[song.id]?.length > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>YouTube: {Math.floor(youtubeCurrentTime / 60)}:{String(Math.floor(youtubeCurrentTime) % 60).padStart(2, '0')}</span>
+                      <span className="animate-pulse">▶️</span>
                     </>
                   )}
                 </div>
