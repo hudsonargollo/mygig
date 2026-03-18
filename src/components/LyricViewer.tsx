@@ -1649,6 +1649,19 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 ×
               </button>
 
+              {/* Auto-scroll Toggle Button */}
+              <button
+                onClick={toggleAutoScrollMode}
+                className={`absolute top-4 right-20 w-12 h-12 rounded-full transition-all duration-300 flex items-center justify-center text-lg font-bold border z-50 ${
+                  autoScrollMode
+                    ? "bg-orange-600/30 text-orange-300 hover:bg-orange-600/50 hover:text-white border-orange-500/50"
+                    : "bg-gray-600/30 text-gray-300 hover:bg-gray-600/50 hover:text-white border-gray-500/50"
+                }`}
+                title={autoScrollMode ? "Disable Auto-scroll" : "Enable Auto-scroll"}
+              >
+                📜
+              </button>
+
               {/* Audio/YouTube/AutoScroll Controls */}
               {(audioControls?.hasAudio || (currentYouTube && audioTimings[song.id]?.length > 0) || autoScrollMode) && (
                 <div className="absolute top-4 left-4 flex gap-2 z-40">
@@ -1717,16 +1730,44 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 </div>
               )}
 
+              {/* Auto-scroll Speed Control Overlay - Bottom Center */}
+              {autoScrollMode && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+                  <div className="bg-black/80 backdrop-blur-sm border border-orange-500/30 rounded-lg px-4 py-2 flex items-center gap-3">
+                    <span className="text-xs text-orange-400 font-mono">SPEED</span>
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      value={song ? (scrollSpeeds[song.id] || 50) : 50}
+                      onChange={(e) => {
+                        if (song) {
+                          const newSpeed = Number(e.target.value);
+                          setScrollSpeeds(prev => ({
+                            ...prev,
+                            [song.id]: newSpeed
+                          }));
+                        }
+                      }}
+                      className="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                    />
+                    <span className="text-xs text-orange-400 min-w-[2ch]">
+                      {song ? (scrollSpeeds[song.id] || 50) : 50}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Help text - Only visible briefly on hover */}
               <div className="absolute top-4 left-1/2 transform -translate-x-1/2 opacity-0 hover:opacity-100 transition-all duration-300">
                 <div className="text-xs text-gray-400 bg-black/70 px-3 py-2 rounded text-center">
-                  <div>← → Navigate lines • ESC Exit mode</div>
+                  <div>← → Navigate lines • ESC Exit mode • 📜 Toggle auto-scroll</div>
                   {audioControls?.hasAudio && <div>Audio: Play/Pause • Auto-sync available</div>}
                   {!audioControls?.hasAudio && currentYouTube && audioTimings[song.id]?.length > 0 && (
                     <div>YouTube: Auto-sync with timing data</div>
                   )}
                   {autoScrollMode && (
-                    <div>Auto-scroll: Mouse wheel to adjust speed • Hover bottom for speed control</div>
+                    <div>Auto-scroll: Ctrl+Mouse wheel to adjust speed • Speed control at bottom</div>
                   )}
                   <div>Click sides to navigate</div>
                 </div>
