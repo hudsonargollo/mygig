@@ -348,16 +348,19 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setCurrentLineIndex(0);
     
     if (newMode) {
-      // Entering performance mode - collapse all panels and sidebar
+      // Entering performance mode - collapse all panels except AudioSync if it has audio
       if (!sidebarCollapsed) {
         onSidebarToggle(); // Auto-collapse sidebar
       }
-      // Close all panels
+      // Close all panels except AudioSync if it has audio
       setShowNotes(false);
       setShowLyricsEditor(false);
       setShowYouTube(false);
       setShowCloudBackup(false);
-      setShowAudioSync(false);
+      // Only close AudioSync if no audio is loaded
+      if (!audioControls?.hasAudio) {
+        setShowAudioSync(false);
+      }
     }
   };
 

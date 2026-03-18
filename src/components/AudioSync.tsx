@@ -60,12 +60,15 @@ export const AudioSync = ({
   // Expose audio controls to parent component
   useEffect(() => {
     if (onAudioReady && audioRef.current) {
+      console.log('AudioSync: Setting up audio controls', { audioFile: !!audioFile, isPlaying, isMuted });
       const audioControls: AudioControls = {
         play: async () => {
           const audio = audioRef.current;
+          console.log('AudioControls: play() called', { audio: !!audio });
           if (!audio) return;
           try {
             await audio.play();
+            console.log('AudioControls: play() successful');
             setIsPlaying(true);
           } catch (error) {
             console.error('Audio play error:', error);
@@ -74,6 +77,7 @@ export const AudioSync = ({
         },
         pause: () => {
           const audio = audioRef.current;
+          console.log('AudioControls: pause() called', { audio: !!audio });
           if (!audio) return;
           audio.pause();
           setIsPlaying(false);
@@ -256,19 +260,16 @@ export const AudioSync = ({
 
   // AI-powered timestamp generation
   const generateAITimestamps = async () => {
+    console.log('AI Generation: Starting...', { lines: lines.length, duration, audioFile: !!audioFile });
     setIsGeneratingAI(true);
     setMessage({ type: 'success', text: 'Generating AI timestamps... This may take a moment.' });
 
     try {
-      // Wait for audio metadata to load if not already loaded
       const audio = audioRef.current;
-      if (!audio) {
-        throw new Error('No audio file loaded');
-      }
-
+      
       // Ensure we have duration
       let audioDuration = duration;
-      if (!audioDuration && audio.duration) {
+      if (!audioDuration && audio && audio.duration) {
         audioDuration = audio.duration * 1000;
         setDuration(audioDuration);
       }
@@ -277,6 +278,7 @@ export const AudioSync = ({
       if (!audioDuration) {
         // Estimate ~3-4 seconds per line as a baseline
         audioDuration = lines.length * 3500;
+        console.log('AI Generation: Using estimated duration', audioDuration);
         setMessage({ 
           type: 'success', 
           text: `Using estimated duration (${Math.round(audioDuration/1000)}s). Upload audio file for better accuracy.` 
@@ -284,6 +286,12 @@ export const AudioSync = ({
       }
 
       const linesCount = lines.length;
+      
+      if (linesCount === 0) {
+        throw new Error('No lyrics available to generate timestamps for');
+      }
+      
+      console.log('AI Generation: Processing', linesCount, 'lines with duration', audioDuration);
       
       // Improved AI-like algorithm
       const generatedTimings: TimingData[] = [];
@@ -323,6 +331,7 @@ export const AudioSync = ({
         currentTime += lineInterval;
       }
       
+      console.log('AI Generation: Generated', generatedTimings.length, 'timings');
       setTimings(generatedTimings);
       onTimingUpdate(generatedTimings);
       setMessage({ 
@@ -334,7 +343,7 @@ export const AudioSync = ({
       console.error('AI timestamp generation failed:', error);
       setMessage({ 
         type: 'error', 
-        text: 'Failed to generate AI timestamps. Try uploading an audio file first or use manual recording.' 
+        text: `Failed to generate AI timestamps: ${error.message}. Try uploading an audio file for better accuracy.` 
       });
     } finally {
       setIsGeneratingAI(false);
