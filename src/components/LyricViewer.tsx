@@ -37,110 +37,18 @@ const LYRICS_KEY = "lp-setlist-custom-lyrics";
 // Default annotations based on HTML voice divisions
 // ⚫️ giulia (white in HTML) = elektra (Giulia), 🔴 hudson (red) = chinoda (Hudson), 🔵 everyone (blue) = all three
 const DEFAULT_ANNOTATIONS: TextAnnotation[] = [
-  // 1. SOMEWHERE I BELONG - Based on HTML markings
-  { songId: "somewhere-i-belong", lineIndex: 0, startOffset: 1, endOffset: 16, vocalist: "elektra" }, // "(When this began)"
-  { songId: "somewhere-i-belong", lineIndex: 0, startOffset: 17, endOffset: -1, vocalist: "chinoda" }, // Hudson part
-  // Removed the incorrect line 2 annotations that were causing the pink text
-  { songId: "somewhere-i-belong", lineIndex: 11, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "I wanna heal..."
-  { songId: "somewhere-i-belong", lineIndex: 18, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "Somewhere I belong" - everyone
-  { songId: "somewhere-i-belong", lineIndex: 18, startOffset: 0, endOffset: -1, vocalist: "chinoda" },
-  { songId: "somewhere-i-belong", lineIndex: 18, startOffset: 0, endOffset: -1, vocalist: "luan" },
-
-  // 2. THE EMPTINESS MACHINE - Based on HTML markings
-  { songId: "the-emptiness-machine", lineIndex: 2, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // Hudson verses
-  { songId: "the-emptiness-machine", lineIndex: 13, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // "Let you cut me open..."
-  { songId: "the-emptiness-machine", lineIndex: 14, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "Gave up who I am..."
-  { songId: "the-emptiness-machine", lineIndex: 16, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "Fallin' for the promise..." - everyone
-  { songId: "the-emptiness-machine", lineIndex: 16, startOffset: 0, endOffset: -1, vocalist: "chinoda" },
-  { songId: "the-emptiness-machine", lineIndex: 16, startOffset: 0, endOffset: -1, vocalist: "luan" },
-
-  // 6. FAINT - Based on HTML markings  
-  { songId: "faint", lineIndex: 2, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // Hudson verses
-  { songId: "faint", lineIndex: 11, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "I can't feel..." - Giulia chorus
-  { songId: "faint", lineIndex: 12, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "Don't turn your back..."
-  { songId: "faint", lineIndex: 25, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // "Hear me out now..." - Hudson
-  { songId: "faint", lineIndex: 26, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "I WON'T BE IGNORED!" - everyone
-  { songId: "faint", lineIndex: 26, startOffset: 0, endOffset: -1, vocalist: "chinoda" },
-  { songId: "faint", lineIndex: 26, startOffset: 0, endOffset: -1, vocalist: "luan" },
-
-  // 12. ONE STEP CLOSER - Based on HTML markings
-  { songId: "one-step-closer", lineIndex: 2, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // Hudson verses
-  { songId: "one-step-closer", lineIndex: 11, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "'Cause I am one step closer..." - Giulia
-  { songId: "one-step-closer", lineIndex: 25, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // "SHUT UP..." - Hudson
-  { songId: "one-step-closer", lineIndex: 26, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "SHUT UP! SHUT UP!" - everyone
-  { songId: "one-step-closer", lineIndex: 26, startOffset: 0, endOffset: -1, vocalist: "chinoda" },
-  { songId: "one-step-closer", lineIndex: 26, startOffset: 0, endOffset: -1, vocalist: "luan" },
-
-  // 23. HEAVY IS THE CROWN - Based on HTML markings
-  { songId: "heavy-is-the-crown", lineIndex: 11, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "This is what you asked for..." - Giulia
-  { songId: "heavy-is-the-crown", lineIndex: 15, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // "Today's gonna be the day..." - Hudson
-  { songId: "heavy-is-the-crown", lineIndex: 16, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "HEAVY IS THE CROWN!" - everyone
-  { songId: "heavy-is-the-crown", lineIndex: 16, startOffset: 0, endOffset: -1, vocalist: "chinoda" },
-  { songId: "heavy-is-the-crown", lineIndex: 16, startOffset: 0, endOffset: -1, vocalist: "luan" },
-
-  // 28. FRIENDLY FIRE - Based on HTML markings
-  { songId: "friendly-fire", lineIndex: 2, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "Waiting for the fire..." - Giulia
-  { songId: "friendly-fire", lineIndex: 5, startOffset: 0, endOffset: -1, vocalist: "chinoda" }, // "We're pulling a trigger..." - Hudson
-  { songId: "friendly-fire", lineIndex: 8, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "Why are we fighting..." - everyone
-  { songId: "friendly-fire", lineIndex: 8, startOffset: 0, endOffset: -1, vocalist: "chinoda" },
-  { songId: "friendly-fire", lineIndex: 8, startOffset: 0, endOffset: -1, vocalist: "luan" },
+  // No default annotations - users will mark their own vocalist parts
 ];
 
 // Function to merge default annotations with user annotations
 const mergeAnnotations = (userAnnotations: TextAnnotation[]): TextAnnotation[] => {
-  // Create a map of existing user annotations for quick lookup
-  const userAnnotationMap = new Set(
-    userAnnotations.map(ann => `${ann.songId}-${ann.lineIndex}-${ann.startOffset}-${ann.endOffset}-${ann.vocalist}`)
-  );
+  // No default annotations - just return user annotations without erased markers
+  const cleanAnnotations = userAnnotations.filter((ann: any) => !ann.isErased);
   
-  // Create a map of erased areas (areas user explicitly cleared)
-  const erasedAreas = userAnnotations
-    .filter((ann: any) => ann.isErased)
-    .map(ann => ({ 
-      songId: ann.songId, 
-      lineIndex: ann.lineIndex, 
-      startOffset: ann.startOffset, 
-      endOffset: ann.endOffset,
-      vocalist: ann.vocalist // Include vocalist to match exact erased annotation
-    }));
+  console.log('User annotations only:', cleanAnnotations.length, 'total annotations');
+  console.log('No default annotations - clean slate');
   
-  // Add default annotations that don't conflict with user annotations or erased areas
-  const mergedAnnotations = [...userAnnotations.filter((ann: any) => !ann.isErased)]; // Remove erased markers from final result
-  
-  for (const defaultAnn of DEFAULT_ANNOTATIONS) {
-    const key = `${defaultAnn.songId}-${defaultAnn.lineIndex}-${defaultAnn.startOffset}-${defaultAnn.endOffset}-${defaultAnn.vocalist}`;
-    
-    // Skip if user has this exact annotation
-    if (userAnnotationMap.has(key)) continue;
-    
-    // Skip if this exact annotation was explicitly erased by user
-    const isExactlyErased = erasedAreas.some(erased => 
-      erased.songId === defaultAnn.songId &&
-      erased.lineIndex === defaultAnn.lineIndex &&
-      erased.startOffset === defaultAnn.startOffset &&
-      erased.endOffset === defaultAnn.endOffset &&
-      erased.vocalist === defaultAnn.vocalist
-    );
-    
-    // Also skip if this annotation overlaps with any erased area of the same vocalist
-    const isOverlapErased = erasedAreas.some(erased => 
-      erased.songId === defaultAnn.songId &&
-      erased.lineIndex === defaultAnn.lineIndex &&
-      erased.vocalist === defaultAnn.vocalist &&
-      !(defaultAnn.endOffset <= erased.startOffset || defaultAnn.startOffset >= erased.endOffset)
-    );
-    
-    if (!isExactlyErased && !isOverlapErased) {
-      mergedAnnotations.push(defaultAnn);
-    }
-  }
-  
-  console.log('Merged annotations:', mergedAnnotations.length, 'total annotations');
-  console.log('Default annotations:', DEFAULT_ANNOTATIONS.length);
-  console.log('User annotations:', userAnnotations.length);
-  console.log('Erased areas:', erasedAreas.length);
-  
-  return mergedAnnotations;
+  return cleanAnnotations;
 };
 
 type InteractionMode = "vocalist" | "loop" | "eraser" | null;
@@ -527,18 +435,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
 
   // Cloud backup functions
   const getCurrentCloudData = useCallback((): CloudData => {
-    // Get only user annotations (not defaults) - include erased markers
-    const userAnnotations = annotations.filter(ann => {
-      const key = `${ann.songId}-${ann.lineIndex}-${ann.startOffset}-${ann.endOffset}-${ann.vocalist}`;
-      const isDefault = DEFAULT_ANNOTATIONS.some(def => 
-        `${def.songId}-${def.lineIndex}-${def.startOffset}-${def.endOffset}-${def.vocalist}` === key
-      );
-      // Include if it's not a default annotation OR if it's an erased marker
-      return !isDefault || (ann as any).isErased;
-    });
-
+    // All annotations are user annotations now (no defaults to filter)
     return {
-      annotations: userAnnotations,
+      annotations,
       notes,
       youtubeLinks,
       loops,
@@ -555,9 +454,8 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setLoops(data.loops || []);
     setCustomLyrics(data.customLyrics || {});
     
-    // Merge restored annotations with defaults
-    const mergedAnnotations = mergeAnnotations(data.annotations || []);
-    setAnnotations(mergedAnnotations);
+    // Set annotations directly (no defaults to merge)
+    setAnnotations(data.annotations || []);
     
     // Save to localStorage
     save(NOTES_KEY, data.notes || {});
@@ -632,7 +530,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       setAnnotations((prev) => {
         let updated = [...prev];
         
-        // First, remove all existing annotations in the selected range
+        // Remove all existing annotations in the selected range
         for (let li = startLineIdx; li <= endLineIdx; li++) {
           const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
           if (offsets) {
@@ -640,54 +538,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           }
         }
         
-        // Create "erased" markers to prevent default annotations from reappearing
-        const erasedAreas: TextAnnotation[] = [];
-        for (let li = startLineIdx; li <= endLineIdx; li++) {
-          const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
-          if (offsets) {
-            // Check if any default annotations exist in this range
-            const overlappingDefaults = DEFAULT_ANNOTATIONS.filter(def => 
-              def.songId === song.id && 
-              def.lineIndex === offsets.lineIndex &&
-              !(def.endOffset <= offsets.startOffset || def.startOffset >= offsets.endOffset)
-            );
-            
-            // Create erased markers for each overlapping default annotation
-            for (const defaultAnn of overlappingDefaults) {
-              const eraseStart = Math.max(offsets.startOffset, defaultAnn.startOffset);
-              const eraseEnd = Math.min(offsets.endOffset, defaultAnn.endOffset === -1 ? offsets.endOffset : defaultAnn.endOffset);
-              
-              if (eraseStart < eraseEnd) {
-                erasedAreas.push({
-                  songId: song.id,
-                  lineIndex: offsets.lineIndex,
-                  startOffset: eraseStart,
-                  endOffset: eraseEnd,
-                  vocalist: defaultAnn.vocalist, // Use the same vocalist as the default to override it
-                  isErased: true // Mark as intentionally erased
-                } as any);
-              }
-            }
-          }
-        }
+        // Save user annotations to localStorage (no defaults to worry about)
+        save(STORAGE_KEY, updated);
         
-        // Add erased areas to updated annotations
-        updated.push(...erasedAreas);
-        
-        // Save user annotations (including erased areas) to localStorage
-        const userOnly = updated.filter(ann => {
-          const key = `${ann.songId}-${ann.lineIndex}-${ann.startOffset}-${ann.endOffset}-${ann.vocalist}`;
-          const isDefault = DEFAULT_ANNOTATIONS.some(def => 
-            `${def.songId}-${def.lineIndex}-${def.startOffset}-${def.endOffset}-${def.vocalist}` === key
-          );
-          // Include if it's not a default annotation OR if it's an erased marker
-          return !isDefault || (ann as any).isErased;
-        });
-        save(STORAGE_KEY, userOnly);
-        
-        // Re-merge with defaults (erased areas will prevent defaults from showing)
-        const merged = mergeAnnotations(userOnly);
-        return merged;
+        return updated;
       });
       selection.removeAllRanges();
       return;
