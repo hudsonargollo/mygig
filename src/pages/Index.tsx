@@ -26,9 +26,9 @@ const loadOrder = (): Song[] => {
 };
 
 const Index = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Temporarily disable loading screen
   const [songs, setSongs] = useState<Song[]>(loadOrder);
-  const [selectedSongId, setSelectedSongId] = useState<string | null>(null);
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id ?? null); // Default to first song
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleLoadingComplete = useCallback(() => {

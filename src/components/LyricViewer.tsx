@@ -499,52 +499,91 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setAudioControls(controls);
   }, []);
 
-  // Auto-scroll functionality
+  // Auto-scroll functionality - Fixed with proper null checks and stable dependencies
   useEffect(() => {
-    if (autoScrollMode && performanceMode && isAutoScrolling) {
-      const speed = getCurrentScrollSpeed();
-      // Convert speed (1-100) to pixels per frame (0.5-5 pixels)
-      const pixelsPerFrame = Math.max(0.5, speed / 20);
-      
-      scrollIntervalRef.current = window.setInterval(() => {
-        setScrollPosition(prev => prev + pixelsPerFrame);
-      }, 16); // ~60fps
-    } else {
+    // Clear any existing interval first
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+
+    // Only start auto-scroll if all conditions are met
+    if (autoScrollMode && performanceMode && isAutoScrolling && song) {
+      try {
+        const currentSpeed = scrollSpeeds[song.id] || 50; // Get speed directly to avoid function dependency
+        const pixelsPerFrame = Math.max(0.5, currentSpeed / 20);
+        
+        scrollIntervalRef.current = window.setInterval(() => {
+          setScrollPosition(prev => {
+            // Add safety check to prevent excessive scrolling
+            const maxScroll = 10000; // Reasonable max scroll position
+            return Math.min(prev + pixelsPerFrame, maxScroll);
+          });
+        }, 16); // ~60fps
+      } catch (error) {
+        console.error('Auto-scroll error:', error);
+        // Ensure we clean up on error
+        if (scrollIntervalRef.current) {
+          clearInterval(scrollIntervalRef.current);
+          scrollIntervalRef.current = null;
+        }
+      }
+    }
+
+    // Cleanup function
+    return () => {
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
         scrollIntervalRef.current = null;
       }
-    }
-
-    return () => {
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-      }
     };
-  }, [autoScrollMode, performanceMode, isAutoScrolling, getCurrentScrollSpeed]);
+  }, [autoScrollMode, performanceMode, isAutoScrolling, song?.id, scrollSpeeds]); // Use song.id and scrollSpeeds directly
 
-  // Mouse wheel speed control for auto-scroll mode in performance mode
+  // Mouse wheel speed control for auto-scroll mode - Fixed with proper null checks
   useEffect(() => {
-    if (!performanceMode || !autoScrollMode) return;
+    if (!performanceMode || !autoScrollMode || !song) return;
 
     const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -2 : 2; // Reverse: scroll up = faster, scroll down = slower
-      const newSpeed = Math.max(1, Math.min(100, getCurrentScrollSpeed() + delta));
-      setCurrentScrollSpeed(newSpeed);
-    };
-
-    const container = performanceContainerRef.current;
-    if (container) {
-      container.addEventListener('wheel', handleWheel, { passive: false });
-    }
-
-    return () => {
-      if (container) {
-        container.removeEventListener('wheel', handleWheel);
+      // Only handle wheel events with Ctrl/Cmd modifier
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        try {
+          const currentSpeed = scrollSpeeds[song.id] || 50;
+          const delta = e.deltaY > 0 ? -2 : 2; // Reverse: scroll up = faster, scroll down = slower
+          const newSpeed = Math.max(1, Math.min(100, currentSpeed + delta));
+          
+          // Update scroll speeds directly
+          setScrollSpeeds(prev => ({
+            ...prev,
+            [song.id]: newSpeed
+          }));
+        } catch (error) {
+          console.error('Mouse wheel speed control error:', error);
+        }
       }
     };
-  }, [performanceMode, autoScrollMode, getCurrentScrollSpeed, setCurrentScrollSpeed]);
+
+    // Get container with proper null check
+    const container = performanceContainerRef.current;
+    if (container) {
+      try {
+        container.addEventListener('wheel', handleWheel, { passive: false });
+      } catch (error) {
+        console.error('Failed to add wheel event listener:', error);
+      }
+    }
+
+    // Cleanup function with null checks
+    return () => {
+      if (container) {
+        try {
+          container.removeEventListener('wheel', handleWheel);
+        } catch (error) {
+          console.error('Failed to remove wheel event listener:', error);
+        }
+      }
+    };
+  }, [performanceMode, autoScrollMode, song?.id, scrollSpeeds, setScrollSpeeds]); // Stable dependencies
 
   // Auto-sync in performance mode when audio is playing
   useEffect(() => {
@@ -648,42 +687,55 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     return () => clearInterval(interval);
   }, [saveToCloudImmediately]);
 
-  // Auto-scroll functionality
-  const getCurrentScrollSpeed = () => {
+  // Auto-scroll functionality - Updated with proper error handling
+  const getCurrentScrollSpeed = useCallback(() => {
     if (!song) return 50; // Default speed
     return scrollSpeeds[song.id] || 50;
-  };
+  }, [song?.id, scrollSpeeds]); // Stable dependencies
 
-  const setCurrentScrollSpeed = (speed: number) => {
+  const setCurrentScrollSpeed = useCallback((speed: number) => {
     if (!song) return;
     setScrollSpeeds(prev => ({
       ...prev,
       [song.id]: speed
     }));
-  };
+  }, [song?.id, setScrollSpeeds]); // Stable dependencies
 
-  const startAutoScroll = () => {
-    if (!lyricsRef.current || scrollIntervalRef.current) return;
+  const startAutoScroll = useCallback(() => {
+    if (!lyricsRef.current || scrollIntervalRef.current || !song) return;
     
-    setIsAutoScrolling(true);
-    const speed = getCurrentScrollSpeed();
-    // Convert speed (1-100) to scroll interval (faster = shorter interval)
-    const intervalMs = Math.max(10, 110 - speed);
-    
-    scrollIntervalRef.current = window.setInterval(() => {
-      if (lyricsRef.current) {
-        lyricsRef.current.scrollTop += 1; // Scroll 1px at a time for smoothness
-      }
-    }, intervalMs);
-  };
-
-  const stopAutoScroll = () => {
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
+    try {
+      setIsAutoScrolling(true);
+      const speed = scrollSpeeds[song.id] || 50;
+      // Convert speed (1-100) to scroll interval (faster = shorter interval)
+      const intervalMs = Math.max(10, 110 - speed);
+      
+      scrollIntervalRef.current = window.setInterval(() => {
+        const container = lyricsRef.current;
+        if (container) {
+          container.scrollTop += 1; // Scroll 1px at a time for smoothness
+        } else {
+          // Stop scrolling if container is no longer available
+          stopAutoScroll();
+        }
+      }, intervalMs);
+    } catch (error) {
+      console.error('Failed to start auto-scroll:', error);
+      setIsAutoScrolling(false);
     }
-    setIsAutoScrolling(false);
-  };
+  }, [song?.id, scrollSpeeds]);
+
+  const stopAutoScroll = useCallback(() => {
+    try {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+      setIsAutoScrolling(false);
+    } catch (error) {
+      console.error('Failed to stop auto-scroll:', error);
+    }
+  }, []);
 
   const resetScroll = () => {
     if (lyricsRef.current) {
@@ -692,57 +744,73 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setScrollPosition(0);
   };
 
-  // Performance mode auto-scroll functionality
-  const startPerformanceAutoScroll = () => {
-    if (scrollIntervalRef.current) return;
+  // Performance mode auto-scroll functionality - Updated with error handling
+  const startPerformanceAutoScroll = useCallback(() => {
+    if (scrollIntervalRef.current || !song) return;
     
-    setIsAutoScrolling(true);
-    const speed = getCurrentScrollSpeed();
-    // Convert speed (1-100) to pixels per frame (1-5 pixels)
-    const pixelsPerFrame = Math.max(0.5, speed / 20);
-    
-    scrollIntervalRef.current = window.setInterval(() => {
-      setScrollPosition(prev => prev + pixelsPerFrame);
-    }, 16); // ~60fps
-  };
-
-  const stopPerformanceAutoScroll = () => {
-    if (scrollIntervalRef.current) {
-      clearInterval(scrollIntervalRef.current);
-      scrollIntervalRef.current = null;
+    try {
+      setIsAutoScrolling(true);
+      const speed = scrollSpeeds[song.id] || 50;
+      // Convert speed (1-100) to pixels per frame (1-5 pixels)
+      const pixelsPerFrame = Math.max(0.5, speed / 20);
+      
+      scrollIntervalRef.current = window.setInterval(() => {
+        setScrollPosition(prev => {
+          const maxScroll = 10000; // Safety limit
+          return Math.min(prev + pixelsPerFrame, maxScroll);
+        });
+      }, 16); // ~60fps
+    } catch (error) {
+      console.error('Failed to start performance auto-scroll:', error);
+      setIsAutoScrolling(false);
     }
-    setIsAutoScrolling(false);
-  };
+  }, [song?.id, scrollSpeeds]);
+
+  const stopPerformanceAutoScroll = useCallback(() => {
+    try {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+      setIsAutoScrolling(false);
+    } catch (error) {
+      console.error('Failed to stop performance auto-scroll:', error);
+    }
+  }, []);
 
   const resetPerformanceScroll = () => {
     setScrollPosition(0);
   };
 
-  // Toggle auto-scroll mode
-  const toggleAutoScrollMode = () => {
-    const newMode = !autoScrollMode;
-    setAutoScrollMode(newMode);
-    
-    if (!newMode) {
-      stopAutoScroll();
-      stopPerformanceAutoScroll();
-    }
-    
-    if (newMode) {
-      // Reset scroll position when starting
-      setScrollPosition(0);
-      if (lyricsRef.current) {
-        lyricsRef.current.scrollTop = 0;
+  // Toggle auto-scroll mode - Updated with proper error handling
+  const toggleAutoScrollMode = useCallback(() => {
+    try {
+      const newMode = !autoScrollMode;
+      setAutoScrollMode(newMode);
+      
+      if (!newMode) {
+        stopAutoScroll();
+        stopPerformanceAutoScroll();
       }
       
-      // Entering auto-scroll mode - close other panels except auto-scroll controls
-      setShowNotes(false);
-      setShowLyricsEditor(false);
-      setShowYouTube(false);
-      setShowCloudBackup(false);
-      setShowAudioSync(false);
+      if (newMode) {
+        // Reset scroll position when starting
+        setScrollPosition(0);
+        if (lyricsRef.current) {
+          lyricsRef.current.scrollTop = 0;
+        }
+        
+        // Entering auto-scroll mode - close other panels except auto-scroll controls
+        setShowNotes(false);
+        setShowLyricsEditor(false);
+        setShowYouTube(false);
+        setShowCloudBackup(false);
+        setShowAudioSync(false);
+      }
+    } catch (error) {
+      console.error('Failed to toggle auto-scroll mode:', error);
     }
-  };
+  }, [autoScrollMode, stopAutoScroll, stopPerformanceAutoScroll]);
   // Clean up auto-scroll on unmount or song change
   useEffect(() => {
     return () => {
