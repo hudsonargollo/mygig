@@ -3,6 +3,8 @@ import { Eraser, Pencil } from "lucide-react";
 import type { Song } from "@/data/songs";
 import YouTubePlayer, { formatTime, parseTime } from "./YouTubePlayer";
 import type { LoopRegion } from "./YouTubePlayer";
+import { CloudBackup } from "./CloudBackup";
+import { saveToCloud, loadFromCloud, type CloudData } from "@/utils/cloud-storage";
 
 type Vocalist = "elektra" | "chinoda" | "luan";
 type VocalistOrAll = Vocalist | "all";
@@ -263,6 +265,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const [loopEndInput, setLoopEndInput] = useState("0:30");
   const [loopLabelInput, setLoopLabelInput] = useState("");
   const [eraserMode, setEraserMode] = useState(false);
+  const [showCloudBackup, setShowCloudBackup] = useState(false);
   
   // Performance mode states (formerly karaoke)
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -487,6 +490,61 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     if (!song) return "";
     return customLyrics[song.id] || song.lyrics;
   };
+
+  // Cloud backup functions
+  const getCurrentCloudData = useCallback((): CloudData => {
+    // Get only user annotations (not defaults)
+    const userAnnotations = annotations.filter(ann => {
+      const key = `${ann.songId}-${ann.lineIndex}-${ann.startOffset}-${ann.endOffset}-${ann.vocalist}`;
+      return !DEFAULT_ANNOTATIONS.some(def => 
+        `${def.songId}-${def.lineIndex}-${def.startOffset}-${def.endOffset}-${def.vocalist}` === key
+      );
+    });
+
+    return {
+      annotations: userAnnotations,
+      notes,
+      youtubeLinks,
+      loops,
+      customLyrics,
+      lastUpdated: new Date().toISOString(),
+      version: '1.0'
+    };
+  }, [annotations, notes, youtubeLinks, loops, customLyrics]);
+
+  const handleCloudRestore = useCallback((data: CloudData) => {
+    // Restore all data from cloud
+    setNotes(data.notes || {});
+    setYoutubeLinks(data.youtubeLinks || {});
+    setLoops(data.loops || []);
+    setCustomLyrics(data.customLyrics || {});
+    
+    // Merge restored annotations with defaults
+    const mergedAnnotations = mergeAnnotations(data.annotations || []);
+    setAnnotations(mergedAnnotations);
+    
+    // Save to localStorage
+    save(NOTES_KEY, data.notes || {});
+    save(YOUTUBE_KEY, data.youtubeLinks || {});
+    save(LOOPS_KEY, data.loops || []);
+    save(LYRICS_KEY, data.customLyrics || {});
+    save(STORAGE_KEY, data.annotations || []);
+  }, []);
+
+  // Auto-backup every 5 minutes if there are changes
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const data = getCurrentCloudData();
+        await saveToCloud(data);
+        console.log('Auto-backup completed');
+      } catch (error) {
+        console.warn('Auto-backup failed:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [getCurrentCloudData]);
 
   const handleMouseUp = useCallback(() => {
     if (!song) return;
@@ -804,6 +862,17 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
             title="Edit lyrics (Ctrl+E)"
           >
             ✏️ EDIT LYRICS
+          </button>
+          <button
+            onClick={() => setShowCloudBackup(!showCloudBackup)}
+            className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+              showCloudBackup
+                ? "border-blue-500 text-blue-500 bg-blue-500/10"
+                : "border-border text-muted-foreground hover:text-accent"
+            }`}
+            title="Cloud backup & restore"
+          >
+            ☁️ BACKUP
           </button>
         </div>
       </div>
@@ -1234,6 +1303,21 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
               <div>• Empty lines create spacing</div>
               <div>• Voice markings will apply to edited lyrics</div>
               <div>• Export/Import for backup and sharing</div>
+            </div>
+          </div>
+        )}
+
+        {/* Cloud Backup Panel */}
+        {showCloudBackup && (
+          <div className="w-80 border-l border-border bg-surface flex flex-col shrink-0">
+            <div className="p-4 border-b border-border">
+              <span className="font-mono-ui text-xs text-muted-foreground">CLOUD BACKUP</span>
+            </div>
+            <div className="flex-1 p-4">
+              <CloudBackup
+                onRestore={handleCloudRestore}
+                getCurrentData={getCurrentCloudData}
+              />
             </div>
           </div>
         )}
