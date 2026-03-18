@@ -6,9 +6,11 @@ interface SetlistSidebarProps {
   selectedSongId: string | null;
   onSelectSong: (id: string) => void;
   onReorder: (songs: Song[]) => void;
+  onToggleCollapse: () => void;
+  isCollapsed: boolean;
 }
 
-const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder }: SetlistSidebarProps) => {
+const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder, onToggleCollapse, isCollapsed }: SetlistSidebarProps) => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const dragItem = useRef<number | null>(null);
@@ -45,9 +47,18 @@ const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder }: Setl
 
   return (
     <div className="w-full h-full bg-surface border-r border-border flex flex-col">
-      <div className="p-4 border-b border-border">
-        <h2 className="font-display text-2xl tracking-wider text-foreground">SETLIST</h2>
-        <p className="font-mono-ui text-xs text-muted-foreground mt-1">TOCA DO RAUL — 21/03</p>
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-2xl tracking-wider text-foreground">SETLIST</h2>
+          <p className="font-mono-ui text-xs text-muted-foreground mt-1">TOCA DO RAUL — 21/03</p>
+        </div>
+        <button
+          onClick={onToggleCollapse}
+          className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
+          title="Collapse sidebar"
+        >
+          ☰
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -91,22 +102,6 @@ const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder }: Setl
             </div>
           );
         })}
-      </div>
-
-      {/* Legend */}
-      <div className="p-4 border-t border-border space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 bg-cyan inline-block" />
-          <span className="font-mono-ui text-xs text-foreground">LADY</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 bg-yellow inline-block" />
-          <span className="font-mono-ui text-xs text-foreground">HUDS</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 bg-orange inline-block" />
-          <span className="font-mono-ui text-xs text-foreground">LUAN</span>
-        </div>
       </div>
     </div>
   );

@@ -29,6 +29,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState<Song[]>(loadOrder);
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleLoadingComplete = useCallback(() => {
     setLoading(false);
@@ -40,6 +41,20 @@ const Index = () => {
     localStorage.setItem(SETLIST_ORDER_KEY, JSON.stringify(newSongs.map((s) => s.id)));
   }, []);
 
+  const handleSongChange = useCallback((direction: 'prev' | 'next') => {
+    const currentIndex = songs.findIndex(s => s.id === selectedSongId);
+    if (currentIndex === -1) return;
+    
+    let newIndex;
+    if (direction === 'prev') {
+      newIndex = Math.max(0, currentIndex - 1);
+    } else {
+      newIndex = Math.min(songs.length - 1, currentIndex + 1);
+    }
+    
+    setSelectedSongId(songs[newIndex].id);
+  }, [songs, selectedSongId]);
+
   const selectedSong = songs.find((s) => s.id === selectedSongId) ?? null;
   const selectedIndex = songs.findIndex((s) => s.id === selectedSongId);
 
@@ -49,18 +64,29 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Setlist - 25% width */}
-      <div className="w-1/4 min-w-[240px] max-w-[360px] h-full overflow-hidden">
+      {/* Setlist - Collapsible */}
+      <div className={`transition-all duration-300 h-full overflow-hidden ${
+        sidebarCollapsed ? 'w-0' : 'w-1/4 min-w-[240px] max-w-[360px]'
+      }`}>
         <SetlistSidebar
           songs={songs}
           selectedSongId={selectedSongId}
           onSelectSong={setSelectedSongId}
           onReorder={handleReorder}
+          onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+          isCollapsed={sidebarCollapsed}
         />
       </div>
 
       {/* Lyrics - remaining width */}
-      <LyricViewer song={selectedSong} songIndex={selectedIndex} />
+      <LyricViewer 
+        song={selectedSong} 
+        songIndex={selectedIndex}
+        onSidebarToggle={() => setSidebarCollapsed(prev => !prev)}
+        sidebarCollapsed={sidebarCollapsed}
+        onSongChange={handleSongChange}
+        totalSongs={songs.length}
+      />
     </div>
   );
 };

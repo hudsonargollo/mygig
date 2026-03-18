@@ -23,6 +23,8 @@ interface YouTubePlayerProps {
   songTitle?: string;
   activeLoop: LoopRegion | null;
   onClearLoop: () => void;
+  onTimeUpdate?: (currentTime: number) => void;
+  onPlayStateChange?: (isPlaying: boolean) => void;
 }
 
 const extractVideoId = (url: string): string | null => {
@@ -81,6 +83,8 @@ const YouTubePlayer = ({
   songTitle,
   activeLoop,
   onClearLoop,
+  onTimeUpdate,
+  onPlayStateChange,
 }: YouTubePlayerProps) => {
   const [editing, setEditing] = useState(!youtubeUrl);
   const [input, setInput] = useState(youtubeUrl);
@@ -119,8 +123,10 @@ const YouTubePlayer = ({
             setDuration(e.target.getDuration());
           },
           onStateChange: (e: any) => {
-            setIsPlaying(e.data === window.YT.PlayerState.PLAYING);
-            if (e.data === window.YT.PlayerState.PLAYING) {
+            const playing = e.data === window.YT.PlayerState.PLAYING;
+            setIsPlaying(playing);
+            onPlayStateChange?.(playing);
+            if (playing) {
               setDuration(e.target.getDuration());
             }
           },
@@ -153,6 +159,7 @@ const YouTubePlayer = ({
         const t = playerRef.current.getCurrentTime?.();
         if (typeof t === "number") {
           setCurrentTime(t);
+          onTimeUpdate?.(t);
 
           // Enforce loop
           if (activeLoop && isPlaying) {
