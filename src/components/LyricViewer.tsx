@@ -270,8 +270,6 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const [isAutoMode, setIsAutoMode] = useState(true); // true = auto, false = manual
   const [isPlaying, setIsPlaying] = useState(false);
   const [youtubeCurrentTime, setYoutubeCurrentTime] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   
   const lyricsRef = useRef<HTMLDivElement>(null);
   const performanceContainerRef = useRef<HTMLDivElement>(null);
@@ -386,28 +384,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         return;
       }
       
-      // ESC to exit performance mode or fullscreen
+      // ESC to exit performance mode
       if (e.key === "Escape") {
         e.preventDefault();
-        if (isFullscreen) {
-          document.exitFullscreen?.();
-        } else {
-          setPerformanceMode(false);
-        }
-        return;
-      }
-      
-      // F11 for fullscreen toggle
-      if (e.key === "F11") {
-        e.preventDefault();
-        toggleFullscreen();
-        return;
-      }
-      
-      // F1 for help
-      if (e.key === "F1") {
-        e.preventDefault();
-        setShowHelp(prev => !prev);
+        setPerformanceMode(false);
         return;
       }
       
@@ -438,26 +418,6 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [performanceMode, isAutoMode, song, customLyrics, onSongChange]);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      performanceContainerRef.current?.requestFullscreen?.();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
-    }
-  };
-
-  // Listen for fullscreen changes
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
 
   const togglePerformanceMode = () => {
     const newMode = !performanceMode;
@@ -767,7 +727,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const songLoops = loops.filter((l) => l.songId === song.id);
 
   return (
-    <div className="flex-1 flex flex-col bg-background min-h-0">
+    <div className="flex-1 flex flex-col bg-background h-full">
       {/* Header */}
       <div className="border-b border-border p-6 flex items-end justify-between shrink-0 flex-wrap gap-2">
         <div>
@@ -1089,364 +1049,224 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
 
       <div className="flex flex-1 min-h-0">
         {/* Lyrics */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
           {performanceMode ? (
-            // Performance Mode - Minimalist Design with Focus on Lyrics
+            // Performance Mode - Simple and Functional
             <div 
               ref={performanceContainerRef}
-              className="h-full flex flex-col bg-background relative"
+              className="flex-1 flex flex-col bg-background relative"
             >
-              {/* Discreet Top Controls - Only visible on hover */}
-              <div className="absolute top-0 left-0 right-0 z-10 opacity-0 hover:opacity-100 transition-opacity duration-300">
-                <div className="flex justify-between items-center p-3 bg-background/80 backdrop-blur-sm">
-                  {/* Song Navigation - Minimalist */}
-                  <div className="flex items-center gap-2">
+              {/* Simple Top Bar */}
+              <div className="flex justify-between items-center p-4 border-b border-border bg-background/95">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onSongChange?.('prev')}
+                    disabled={songIndex === 0}
+                    className={`px-3 py-1 text-sm border rounded ${
+                      songIndex === 0
+                        ? "border-border text-muted-foreground cursor-not-allowed"
+                        : "border-border text-foreground hover:border-primary"
+                    }`}
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-sm text-muted-foreground">
+                    {songIndex + 1}/{totalSongs} - {song.title}
+                  </span>
+                  <button
+                    onClick={() => onSongChange?.('next')}
+                    disabled={songIndex >= totalSongs - 1}
+                    className={`px-3 py-1 text-sm border rounded ${
+                      songIndex >= totalSongs - 1
+                        ? "border-border text-muted-foreground cursor-not-allowed"
+                        : "border-border text-foreground hover:border-primary"
+                    }`}
+                  >
+                    Next →
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={toggleAutoMode}
+                    className={`px-3 py-1 text-sm border rounded ${
+                      isAutoMode
+                        ? "border-blue-500 text-blue-500 bg-blue-500/10"
+                        : "border-orange-500 text-orange-500 bg-orange-500/10"
+                    }`}
+                  >
+                    {isAutoMode ? "Auto" : "Manual"}
+                  </button>
+                  
+                  {isAutoMode && (
                     <button
-                      onClick={() => onSongChange?.('prev')}
-                      disabled={songIndex === 0}
-                      className={`w-8 h-8 rounded flex items-center justify-center text-sm transition-colors ${
-                        songIndex === 0
-                          ? "text-muted-foreground/50 cursor-not-allowed"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      onClick={togglePlayPause}
+                      className={`px-3 py-1 text-sm border rounded ${
+                        isPlaying
+                          ? "border-red-500 text-red-500 bg-red-500/10"
+                          : "border-green-500 text-green-500 bg-green-500/10"
                       }`}
-                      title="Previous Song (PgUp)"
                     >
-                      ‹
+                      {isPlaying ? "Pause" : "Play"}
                     </button>
-                    <div className="px-2 py-1 text-xs font-mono-ui text-muted-foreground bg-muted/30 rounded">
-                      {songIndex + 1}/{totalSongs}
-                    </div>
-                    <button
-                      onClick={() => onSongChange?.('next')}
-                      disabled={songIndex >= totalSongs - 1}
-                      className={`w-8 h-8 rounded flex items-center justify-center text-sm transition-colors ${
-                        songIndex >= totalSongs - 1
-                          ? "text-muted-foreground/50 cursor-not-allowed"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                      }`}
-                      title="Next Song (PgDn)"
-                    >
-                      ›
-                    </button>
-                  </div>
-
-                  {/* Exit Controls - Minimalist */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowHelp(true)}
-                      className="w-8 h-8 rounded flex items-center justify-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                      title="Help (F1)"
-                    >
-                      ?
-                    </button>
-                    <button
-                      onClick={toggleFullscreen}
-                      className="w-8 h-8 rounded flex items-center justify-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                      title={isFullscreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)"}
-                    >
-                      {isFullscreen ? "⌐" : "⌐"}
-                    </button>
-                    <button
-                      onClick={togglePerformanceMode}
-                      className="w-8 h-8 rounded flex items-center justify-center text-xs text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                      title="Exit Performance Mode (ESC)"
-                    >
-                      ×
-                    </button>
-                  </div>
+                  )}
+                  
+                  <button
+                    onClick={togglePerformanceMode}
+                    className="px-3 py-1 text-sm border border-red-500 text-red-500 hover:bg-red-500/10 rounded"
+                  >
+                    Exit
+                  </button>
                 </div>
               </div>
 
-              {/* Main Lyrics Display - Full Focus */}
-              <div className="flex-1 flex flex-col justify-center items-center px-8">
-                <div className="w-full max-w-6xl">
+              {/* Lyrics Display */}
+              <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
+                <div className="w-full max-w-4xl text-center">
                   {(() => {
-                    const lines = currentLyrics.split("\n");
-                    const nonEmptyLines = lines.filter(line => line.trim() !== "");
-                    const currentLine = nonEmptyLines[currentLineIndex] || "";
-                    const nextLine = nonEmptyLines[currentLineIndex + 1] || "";
-                    const prevLine = nonEmptyLines[currentLineIndex - 1] || "";
+                    const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                    const currentLine = lines[currentLineIndex] || "";
+                    const nextLine = lines[currentLineIndex + 1] || "";
+                    const prevLine = lines[currentLineIndex - 1] || "";
 
                     return (
-                      <div className="space-y-8">
-                        {/* Previous Line - Subtle */}
-                        <div className="text-center opacity-30 transition-all duration-500">
-                          <div className="font-mono-body text-xl md:text-2xl font-medium text-muted-foreground">
-                            {prevLine}
+                      <div className="space-y-6">
+                        {/* Previous Line */}
+                        {prevLine && (
+                          <div className="opacity-50">
+                            <div className="text-lg text-muted-foreground">
+                              {prevLine}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Current Line - Main Focus */}
-                        <div className="text-center transition-all duration-700 ease-out">
-                          <div className="font-mono-body text-6xl md:text-8xl lg:text-9xl xl:text-[12rem] font-bold text-foreground leading-tight tracking-wide"
-                               style={{
-                                 textShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                                 filter: 'contrast(1.1)',
-                               }}>
+                        <div className="py-4">
+                          <div className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight">
                             {currentLine.startsWith("[") && currentLine.endsWith("]") ? (
-                              <span className="text-primary text-3xl md:text-4xl lg:text-5xl xl:text-6xl uppercase tracking-widest font-medium">
+                              <span className="text-primary text-2xl md:text-3xl lg:text-4xl uppercase tracking-wider font-medium">
                                 {currentLine.slice(1, -1)}
                               </span>
                             ) : (
-                              <span>
-                                {currentLine}
-                              </span>
+                              currentLine
                             )}
                           </div>
                         </div>
 
-                        {/* Next Line - Subtle */}
-                        <div className="text-center opacity-50 transition-all duration-500">
-                          <div className="font-mono-body text-xl md:text-2xl font-medium text-muted-foreground">
-                            {nextLine}
+                        {/* Next Line */}
+                        {nextLine && (
+                          <div className="opacity-50">
+                            <div className="text-lg text-muted-foreground">
+                              {nextLine}
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     );
                   })()}
                 </div>
               </div>
 
-              {/* Discreet Bottom Controls - Only visible on hover */}
-              <div className="absolute bottom-0 left-0 right-0 z-10 opacity-0 hover:opacity-100 transition-opacity duration-300">
-                <div className="p-4 bg-background/80 backdrop-blur-sm">
-                  <div className="flex justify-center items-center gap-4">
-                    {/* Line Navigation - Minimalist */}
-                    <button
-                      onClick={() => {
-                        const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                        setCurrentLineIndex(prev => Math.max(prev - 1, 0));
-                      }}
-                      disabled={currentLineIndex === 0}
-                      className={`w-10 h-10 rounded flex items-center justify-center text-lg transition-colors ${
-                        currentLineIndex === 0
-                          ? "text-muted-foreground/50 cursor-not-allowed"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                      }`}
-                      title="Previous Line (←)"
-                    >
-                      ‹
-                    </button>
-
-                    {/* Play/Pause for Auto Mode - Minimalist */}
-                    {isAutoMode && (
-                      <button
-                        onClick={togglePlayPause}
-                        className={`w-12 h-12 rounded flex items-center justify-center text-lg transition-colors ${
-                          isPlaying
-                            ? "text-red-500 hover:bg-red-500/10"
-                            : "text-green-500 hover:bg-green-500/10"
-                        }`}
-                        title={isPlaying ? "Pause" : "Play"}
-                      >
-                        {isPlaying ? "⏸" : "▶"}
-                      </button>
-                    )}
-
-                    {/* Mode Toggle - Minimalist */}
-                    <button
-                      onClick={toggleAutoMode}
-                      className={`w-10 h-10 rounded flex items-center justify-center text-xs font-mono-ui transition-colors ${
-                        isAutoMode
-                          ? "text-blue-500 hover:bg-blue-500/10"
-                          : "text-orange-500 hover:bg-orange-500/10"
-                      }`}
-                      title={isAutoMode ? "Switch to Manual" : "Switch to Auto"}
-                    >
-                      {isAutoMode ? "A" : "M"}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                        setCurrentLineIndex(prev => Math.min(prev + 1, lines.length - 1));
-                      }}
-                      disabled={(() => {
-                        const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                        return currentLineIndex >= lines.length - 1;
-                      })()}
-                      className={`w-10 h-10 rounded flex items-center justify-center text-lg transition-colors ${
-                        (() => {
-                          const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                          return currentLineIndex >= lines.length - 1;
-                        })()
-                          ? "text-muted-foreground/50 cursor-not-allowed"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                      }`}
-                      title="Next Line (→)"
-                    >
-                      ›
-                    </button>
-                  </div>
-
-                  {/* Progress Bar - Minimalist */}
-                  <div className="flex justify-center items-center mt-3">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono-ui text-xs text-muted-foreground">
-                        {currentLineIndex + 1}/{currentLyrics.split("\n").filter(line => line.trim() !== "").length}
-                      </span>
-                      <div className="w-32 h-1 bg-border rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-primary/60 transition-all duration-300"
-                          style={{ 
-                            width: `${((currentLineIndex + 1) / currentLyrics.split("\n").filter(line => line.trim() !== "").length) * 100}%` 
-                          }}
-                        />
-                      </div>
-                      <span className="font-mono-ui text-xs text-muted-foreground">
-                        {isAutoMode ? (isPlaying ? "AUTO" : "PAUSED") : "MANUAL"}
-                      </span>
-                      {isAutoMode && (
-                        <span className="font-mono-ui text-xs text-primary/70">
-                          {Math.floor(youtubeCurrentTime / 60)}:{String(Math.floor(youtubeCurrentTime % 60)).padStart(2, '0')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Full-screen click areas for line navigation (invisible) */}
-              <div className="absolute inset-0 flex pointer-events-none">
-                {/* Left third - Previous line */}
-                <div 
-                  className="w-1/3 h-full pointer-events-auto cursor-pointer"
-                  onClick={() => {
-                    if (!isAutoMode) {
+              {/* Bottom Controls */}
+              <div className="flex justify-center items-center p-4 border-t border-border bg-background/95">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => {
                       const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
                       setCurrentLineIndex(prev => Math.max(prev - 1, 0));
-                    }
-                  }}
-                  title={!isAutoMode ? "Previous Line (Click left side)" : ""}
-                />
-                {/* Right third - Next line */}
-                <div 
-                  className="w-1/3 h-full ml-auto pointer-events-auto cursor-pointer"
-                  onClick={() => {
-                    if (!isAutoMode) {
+                    }}
+                    disabled={currentLineIndex === 0}
+                    className={`px-4 py-2 text-sm border rounded ${
+                      currentLineIndex === 0
+                        ? "border-border text-muted-foreground cursor-not-allowed"
+                        : "border-border text-foreground hover:border-primary"
+                    }`}
+                  >
+                    ← Previous Line
+                  </button>
+
+                  <span className="text-sm text-muted-foreground px-4">
+                    Line {currentLineIndex + 1} of {currentLyrics.split("\n").filter(line => line.trim() !== "").length}
+                  </span>
+
+                  <button
+                    onClick={() => {
                       const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
                       setCurrentLineIndex(prev => Math.min(prev + 1, lines.length - 1));
-                    }
-                  }}
-                  title={!isAutoMode ? "Next Line (Click right side)" : ""}
-                />
-              </div>
-
-              {/* Help Overlay - Updated for minimalist design */}
-              {showHelp && (
-                <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
-                  <div className="bg-background/95 border border-border rounded-lg p-8 max-w-2xl">
-                    <div className="text-center mb-6">
-                      <h2 className="font-display text-3xl text-foreground mb-2">PERFORMANCE MODE</h2>
-                      <p className="text-muted-foreground">Minimalist design focused on lyrics</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-6 text-sm">
-                      <div>
-                        <h3 className="font-mono-ui text-primary mb-3">🎵 SONG NAVIGATION</h3>
-                        <div className="space-y-2 text-muted-foreground">
-                          <div>‹ › <strong>Previous/Next Song:</strong> PgUp/PgDn or Ctrl+←/→</div>
-                          <div>⌐ <strong>Fullscreen:</strong> F11 key</div>
-                          <div>× <strong>Exit:</strong> ESC key</div>
-                          <div>? <strong>This Help:</strong> F1 key</div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-mono-ui text-primary mb-3">📝 LINE NAVIGATION</h3>
-                        <div className="space-y-2 text-muted-foreground">
-                          <div>‹ › <strong>Previous/Next Line:</strong> ← → keys or click screen sides</div>
-                          <div><strong>First Line:</strong> Home key</div>
-                          <div><strong>Last Line:</strong> End key</div>
-                          <div><strong>Quick Jump:</strong> Space bar (next line)</div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-mono-ui text-primary mb-3">🎮 PLAYBACK MODES</h3>
-                        <div className="space-y-2 text-muted-foreground">
-                          <div>A <strong>Auto Mode:</strong> Syncs with YouTube timing</div>
-                          <div>M <strong>Manual Mode:</strong> Full keyboard control</div>
-                          <div>▶ ⏸ <strong>Play/Pause:</strong> Auto mode only</div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-mono-ui text-primary mb-3">💡 DESIGN FEATURES</h3>
-                        <div className="space-y-2 text-muted-foreground">
-                          <div><strong>Hover Controls:</strong> UI appears on mouse hover</div>
-                          <div><strong>Clean Focus:</strong> Lyrics take center stage</div>
-                          <div><strong>Click Areas:</strong> Left/right screen for navigation</div>
-                          <div><strong>Progress Bar:</strong> Shows song position</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="text-center mt-6">
-                      <button
-                        onClick={() => setShowHelp(false)}
-                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                      >
-                        Got it!
-                      </button>
-                    </div>
-                  </div>
+                    }}
+                    disabled={(() => {
+                      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                      return currentLineIndex >= lines.length - 1;
+                    })()}
+                    className={`px-4 py-2 text-sm border rounded ${
+                      (() => {
+                        const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                        return currentLineIndex >= lines.length - 1;
+                      })()
+                        ? "border-border text-muted-foreground cursor-not-allowed"
+                        : "border-border text-foreground hover:border-primary"
+                    }`}
+                  >
+                    Next Line →
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           ) : (
-            // Normal Mode - Traditional Lyrics
-            <div className="overflow-y-auto p-6 md:px-10 md:py-6">
-              <div className={`${sidebarCollapsed ? 'max-w-5xl' : 'max-w-3xl'} transition-all duration-300`} ref={lyricsRef} onMouseUp={handleMouseUp}>
-                {lines.map((line, i) => {
-                  const trimmed = line.trim();
-                  const isSection = trimmed.startsWith("[") && trimmed.endsWith("]");
-                  const isEmpty = trimmed === "";
+            // Normal Mode - Fixed Scrolling
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 md:px-10 md:py-8">
+                <div className={`${sidebarCollapsed ? 'max-w-5xl' : 'max-w-3xl'} mx-auto`} ref={lyricsRef} onMouseUp={handleMouseUp}>
+                  {lines.map((line, i) => {
+                    const trimmed = line.trim();
+                    const isSection = trimmed.startsWith("[") && trimmed.endsWith("]");
+                    const isEmpty = trimmed === "";
 
-                  if (isEmpty) return <div key={i} className="h-2" />;
+                    if (isEmpty) return <div key={i} className="h-4" />;
 
-                  if (isSection) {
-                    const sectionName = trimmed.slice(1, -1);
+                    if (isSection) {
+                      const sectionName = trimmed.slice(1, -1);
+                      return (
+                        <div
+                          key={i}
+                          data-line-index={i}
+                          className={`mt-8 mb-4 first:mt-0 flex items-center gap-2 ${mode === "loop" ? "cursor-pointer" : ""}`}
+                          onClick={() => {
+                            if (mode === "loop") {
+                              setPendingLoop({ lineStart: i, lineEnd: i, label: sectionName });
+                              setLoopStartInput("0:00");
+                              setLoopEndInput("0:30");
+                              setLoopLabelInput(sectionName);
+                            }
+                          }}
+                        >
+                          <span className={`font-mono-ui text-xs tracking-widest text-primary uppercase bg-primary/10 px-3 py-1 border border-primary/30 rounded ${mode === "loop" ? "hover:bg-primary/20 hover:border-primary/50" : ""}`}>
+                            {sectionName}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    const inLoop = activeLoop && i >= activeLoop.lineStart && i <= activeLoop.lineEnd;
+                    const segments = getLineSegments(trimmed, annotations, song.id, i);
+
                     return (
                       <div
                         key={i}
                         data-line-index={i}
-                        className={`mt-4 mb-1 first:mt-0 flex items-center gap-2 ${mode === "loop" ? "cursor-pointer" : ""}`}
-                        onClick={() => {
-                          if (mode === "loop") {
-                            setPendingLoop({ lineStart: i, lineEnd: i, label: sectionName });
-                            setLoopStartInput("0:00");
-                            setLoopEndInput("0:30");
-                            setLoopLabelInput(sectionName);
-                          }
-                        }}
+                        onDoubleClick={() => mode === "vocalist" && clearLineAnnotations(i)}
+                        className={`font-mono-body text-xl md:text-2xl font-medium leading-relaxed mb-4 ${
+                          mode ? "cursor-text select-text" : "cursor-default"
+                        } ${inLoop ? "border-l-4 border-primary pl-4 bg-primary/5 rounded-r" : ""}`}
                       >
-                        <span className={`font-mono-ui text-[10px] tracking-widest text-primary/70 uppercase bg-primary/5 px-2 py-0.5 border border-primary/20 ${mode === "loop" ? "hover:bg-primary/15 hover:border-primary/40" : ""}`}>
-                          {sectionName}
-                        </span>
+                        {segments.map((seg, si) => (
+                          <SegmentSpan key={si} segment={seg} />
+                        ))}
                       </div>
                     );
-                  }
-
-                  const inLoop = activeLoop && i >= activeLoop.lineStart && i <= activeLoop.lineEnd;
-                  const segments = getLineSegments(trimmed, annotations, song.id, i);
-
-                  return (
-                    <div
-                      key={i}
-                      data-line-index={i}
-                      onDoubleClick={() => mode === "vocalist" && clearLineAnnotations(i)}
-                      className={`font-mono-body text-xl md:text-2xl font-semibold leading-8 mb-2 ${
-                        mode ? "cursor-text select-text" : "cursor-default"
-                      } ${inLoop ? "border-l-2 border-primary pl-3 bg-primary/5" : ""}`}
-                    >
-                      {segments.map((seg, si) => (
-                        <SegmentSpan key={si} segment={seg} />
-                      ))}
-                    </div>
-                  );
-                })}
-                <div className="h-20" />
+                  })}
+                  <div className="h-32" />
+                </div>
               </div>
             </div>
           )}
