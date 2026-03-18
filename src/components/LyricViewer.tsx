@@ -240,7 +240,6 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   useEffect(() => { save(LOOPS_KEY, loops); }, [loops]);
   useEffect(() => { save(LYRICS_KEY, customLyrics); }, [customLyrics]);
   useEffect(() => { save('lp-setlist-scroll-speeds', scrollSpeeds); }, [scrollSpeeds]);
-  useEffect(() => { save('lp-setlist-scroll-speeds', scrollSpeeds); }, [scrollSpeeds]);
 
   // Simple timing data for demo - in production this would come from a timing file
   const getLineTimings = (songId: string) => {
