@@ -214,6 +214,13 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const [audioControls, setAudioControls] = useState<AudioControls | null>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   
+  // Auto-scroll mode states
+  const [autoScrollMode, setAutoScrollMode] = useState(false);
+  const [scrollSpeeds, setScrollSpeeds] = useState<Record<string, number>>(() => load('lp-setlist-scroll-speeds', {}));
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const scrollIntervalRef = useRef<number | null>(null);
+  
   // Performance mode states (formerly karaoke)
   const [performanceMode, setPerformanceMode] = useState(false);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
@@ -232,6 +239,8 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   useEffect(() => { save(YOUTUBE_KEY, youtubeLinks); }, [youtubeLinks]);
   useEffect(() => { save(LOOPS_KEY, loops); }, [loops]);
   useEffect(() => { save(LYRICS_KEY, customLyrics); }, [customLyrics]);
+  useEffect(() => { save('lp-setlist-scroll-speeds', scrollSpeeds); }, [scrollSpeeds]);
+  useEffect(() => { save('lp-setlist-scroll-speeds', scrollSpeeds); }, [scrollSpeeds]);
 
   // Simple timing data for demo - in production this would come from a timing file
   const getLineTimings = (songId: string) => {
@@ -491,6 +500,53 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setAudioControls(controls);
   }, []);
 
+  // Auto-scroll functionality
+  useEffect(() => {
+    if (autoScrollMode && performanceMode && isAutoScrolling) {
+      const speed = getCurrentScrollSpeed();
+      // Convert speed (1-100) to pixels per frame (0.5-5 pixels)
+      const pixelsPerFrame = Math.max(0.5, speed / 20);
+      
+      scrollIntervalRef.current = window.setInterval(() => {
+        setScrollPosition(prev => prev + pixelsPerFrame);
+      }, 16); // ~60fps
+    } else {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, [autoScrollMode, performanceMode, isAutoScrolling, getCurrentScrollSpeed]);
+
+  // Mouse wheel speed control for auto-scroll mode in performance mode
+  useEffect(() => {
+    if (!performanceMode || !autoScrollMode) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -2 : 2; // Reverse: scroll up = faster, scroll down = slower
+      const newSpeed = Math.max(1, Math.min(100, getCurrentScrollSpeed() + delta));
+      setCurrentScrollSpeed(newSpeed);
+    };
+
+    const container = performanceContainerRef.current;
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, [performanceMode, autoScrollMode, getCurrentScrollSpeed, setCurrentScrollSpeed]);
+
   // Auto-sync in performance mode when audio is playing
   useEffect(() => {
     if (!performanceMode || !audioControls?.hasAudio || !audioControls.isPlaying) return;
@@ -542,9 +598,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       youtubeLinks,
       loops,
       customLyrics,
-      timings: audioTimings
+      timings: audioTimings,
+      scrollSpeeds
     };
-  }, [annotations, notes, youtubeLinks, loops, customLyrics, audioTimings]);
+  }, [annotations, notes, youtubeLinks, loops, customLyrics, audioTimings, scrollSpeeds]);
 
   const handleCloudRestore = useCallback((data: DatabaseData) => {
     // Restore all data from cloud
@@ -553,6 +610,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setLoops(data.loops || []);
     setCustomLyrics(data.customLyrics || {});
     setAudioTimings(data.timings || {});
+    setScrollSpeeds(data.scrollSpeeds || {});
     
     // Set annotations directly (no defaults to merge)
     setAnnotations(data.annotations || []);
@@ -562,6 +620,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     save(YOUTUBE_KEY, data.youtubeLinks || {});
     save(LOOPS_KEY, data.loops || []);
     save(LYRICS_KEY, data.customLyrics || {});
+    save('lp-setlist-scroll-speeds', data.scrollSpeeds || {});
     save(STORAGE_KEY, data.annotations || []);
   }, []);
 
@@ -590,10 +649,127 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     return () => clearInterval(interval);
   }, [saveToCloudImmediately]);
 
-  // Save immediately when critical data changes
+  // Auto-scroll functionality
+  const getCurrentScrollSpeed = () => {
+    if (!song) return 50; // Default speed
+    return scrollSpeeds[song.id] || 50;
+  };
+
+  const setCurrentScrollSpeed = (speed: number) => {
+    if (!song) return;
+    setScrollSpeeds(prev => ({
+      ...prev,
+      [song.id]: speed
+    }));
+  };
+
+  const startAutoScroll = () => {
+    if (!lyricsRef.current || scrollIntervalRef.current) return;
+    
+    setIsAutoScrolling(true);
+    const speed = getCurrentScrollSpeed();
+    // Convert speed (1-100) to scroll interval (faster = shorter interval)
+    const intervalMs = Math.max(10, 110 - speed);
+    
+    scrollIntervalRef.current = window.setInterval(() => {
+      if (lyricsRef.current) {
+        lyricsRef.current.scrollTop += 1; // Scroll 1px at a time for smoothness
+      }
+    }, intervalMs);
+  };
+
+  const stopAutoScroll = () => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+    setIsAutoScrolling(false);
+  };
+
+  const resetScroll = () => {
+    if (lyricsRef.current) {
+      lyricsRef.current.scrollTop = 0;
+    }
+    setScrollPosition(0);
+  };
+
+  // Performance mode auto-scroll functionality
+  const startPerformanceAutoScroll = () => {
+    if (scrollIntervalRef.current) return;
+    
+    setIsAutoScrolling(true);
+    const speed = getCurrentScrollSpeed();
+    // Convert speed (1-100) to pixels per frame (1-5 pixels)
+    const pixelsPerFrame = Math.max(0.5, speed / 20);
+    
+    scrollIntervalRef.current = window.setInterval(() => {
+      setScrollPosition(prev => prev + pixelsPerFrame);
+    }, 16); // ~60fps
+  };
+
+  const stopPerformanceAutoScroll = () => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+    setIsAutoScrolling(false);
+  };
+
+  const resetPerformanceScroll = () => {
+    setScrollPosition(0);
+  };
+
+  // Toggle auto-scroll mode
+  const toggleAutoScrollMode = () => {
+    const newMode = !autoScrollMode;
+    setAutoScrollMode(newMode);
+    
+    if (!newMode) {
+      stopAutoScroll();
+      stopPerformanceAutoScroll();
+    }
+    
+    if (newMode) {
+      // Reset scroll position when starting
+      setScrollPosition(0);
+      if (lyricsRef.current) {
+        lyricsRef.current.scrollTop = 0;
+      }
+      
+      // Entering auto-scroll mode - close other panels except auto-scroll controls
+      setShowNotes(false);
+      setShowLyricsEditor(false);
+      setShowYouTube(false);
+      setShowCloudBackup(false);
+      setShowAudioSync(false);
+    }
+  };
+  // Clean up auto-scroll on unmount or song change
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Stop auto-scroll when song changes
+  useEffect(() => {
+    stopAutoScroll();
+    stopPerformanceAutoScroll();
+    setScrollPosition(0);
+  }, [song?.id]);
+
+  // Load scroll speed for current song
+  useEffect(() => {
+    if (song) {
+      setScrollPosition(0); // Reset scroll position when song changes
+    }
+  }, [song]);
+
   useEffect(() => {
     saveToCloudImmediately();
-  }, [annotations, notes, youtubeLinks, loops, customLyrics, audioTimings, saveToCloudImmediately]);
+  }, [annotations, notes, youtubeLinks, loops, customLyrics, audioTimings, scrollSpeeds, saveToCloudImmediately]);
 
   const handleMouseUp = useCallback(() => {
     if (!song) return;
@@ -899,6 +1075,17 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
             🔁 LOOP
           </button>
           <button
+            onClick={toggleAutoScrollMode}
+            className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+              autoScrollMode
+                ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                : "border-border text-muted-foreground hover:text-accent"
+            }`}
+            title="Auto-scroll mode with speed control"
+          >
+            📜 AUTO SCROLL
+          </button>
+          <button
             onClick={() => setShowYouTube(!showYouTube)}
             className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
               showYouTube
@@ -995,6 +1182,84 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
             onTimeUpdate={handleYouTubeTimeUpdate}
             onPlayStateChange={handleYouTubePlayStateChange}
           />
+        </div>
+      )}
+
+      {/* Auto-scroll speed control */}
+      {autoScrollMode && !performanceMode && (
+        <div className="border-b border-orange-500 bg-orange-500/10 px-6 py-3 flex items-center gap-3 flex-wrap">
+          <span className="font-mono-ui text-xs text-orange-500">📜 AUTO SCROLL SPEED:</span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono-ui text-xs text-muted-foreground">SLOW</span>
+            <input
+              type="range"
+              min="1"
+              max="100"
+              step="1"
+              value={getCurrentScrollSpeed()}
+              onChange={(e) => setCurrentScrollSpeed(Number(e.target.value))}
+              className="w-32 accent-orange-500"
+            />
+            <span className="font-mono-ui text-xs text-muted-foreground">FAST</span>
+            <span className="font-mono-ui text-xs text-orange-500 ml-2">
+              {getCurrentScrollSpeed()}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Speed is saved per song • Use in Performance Mode for smooth scrolling
+          </div>
+        </div>
+      )}
+
+      {/* Auto-scroll control panel */}
+      {autoScrollMode && !performanceMode && (
+        <div className="border-b border-orange-500 bg-orange-500/5 px-6 py-3 flex items-center gap-3 flex-wrap">
+          <span className="font-mono-ui text-xs text-orange-500">📜 AUTO SCROLL:</span>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={isAutoScrolling ? stopAutoScroll : startAutoScroll}
+              className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+                isAutoScrolling
+                  ? "border-red-500 text-red-500 hover:bg-red-500/10"
+                  : "border-green-500 text-green-500 hover:bg-green-500/10"
+              }`}
+            >
+              {isAutoScrolling ? "⏸️ PAUSE" : "▶️ START"}
+            </button>
+            
+            <button
+              onClick={resetScroll}
+              className="px-3 py-1 font-mono-ui text-xs border border-blue-500 text-blue-500 hover:bg-blue-500/10"
+            >
+              ⏮️ RESET
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <span className="font-mono-ui text-xs text-muted-foreground">SPEED:</span>
+            <input
+              type="range"
+              min="1"
+              max="100"
+              value={getCurrentScrollSpeed()}
+              onChange={(e) => setCurrentScrollSpeed(Number(e.target.value))}
+              className="flex-1 h-2 bg-border rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #f97316 0%, #f97316 ${getCurrentScrollSpeed()}%, #374151 ${getCurrentScrollSpeed()}%, #374151 100%)`
+              }}
+            />
+            <span className="font-mono-ui text-xs text-orange-500 min-w-[3ch]">
+              {getCurrentScrollSpeed()}
+            </span>
+          </div>
+          
+          <button
+            onClick={() => setAutoScrollMode(false)}
+            className="px-3 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -1156,13 +1421,60 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         {/* Lyrics */}
         <div className="flex-1 flex flex-col min-h-0">
           {performanceMode ? (
-            // Performance Mode - Pure Lyrics with Vocalist Markings
+            // Performance Mode - Pure Lyrics with Auto-scroll or Line Navigation
             <div 
               ref={performanceContainerRef}
               className="flex-1 flex items-center justify-center bg-black text-white relative overflow-hidden"
             >
-              {/* Pure Lyrics Display with Vocalist Annotations */}
-              <div className="w-full h-full flex items-center justify-center p-8">
+              {autoScrollMode ? (
+                // Auto-scroll Mode - Continuous scrolling lyrics
+                <div className="w-full h-full relative overflow-hidden">
+                  <div 
+                    className="absolute w-full transition-transform duration-75 ease-linear"
+                    style={{ 
+                      transform: `translateY(${-scrollPosition}px)`,
+                      paddingTop: '50vh', // Start from center
+                      paddingBottom: '50vh' // End at center
+                    }}
+                  >
+                    <div className="w-full max-w-6xl mx-auto px-8">
+                      {(() => {
+                        const lines = currentLyrics.split("\n");
+                        return lines.map((line, index) => {
+                          const trimmed = line.trim();
+                          const isSection = trimmed.startsWith("[") && trimmed.endsWith("]");
+                          const isEmpty = trimmed === "";
+
+                          if (isEmpty) return <div key={index} className="h-8" />;
+
+                          if (isSection) {
+                            return (
+                              <div key={index} className="text-center my-12">
+                                <span className="text-blue-400 text-2xl md:text-3xl uppercase tracking-wider font-medium">
+                                  {trimmed.slice(1, -1)}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          const segments = getLineSegments(trimmed, annotations, song.id, index);
+                          return (
+                            <div key={index} className="text-center mb-6">
+                              <div className="text-2xl md:text-3xl lg:text-4xl font-normal text-white leading-relaxed">
+                                {segments.map((seg, si) => (
+                                  <PerformanceSegmentSpan key={si} segment={seg} />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Line-by-line Mode - Original performance mode
+                <div className="w-full h-full flex items-center justify-center p-8">
                 <div className="w-full max-w-6xl text-center">
                   {(() => {
                     const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
@@ -1259,6 +1571,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                   })()}
                 </div>
               </div>
+              )}
 
               {/* Exit Button - More visible with higher z-index */}
               <button
@@ -1269,11 +1582,11 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 ×
               </button>
 
-              {/* Audio/YouTube Controls - Show if audio or YouTube with timing is available */}
-              {(audioControls?.hasAudio || (currentYouTube && audioTimings[song.id]?.length > 0)) && (
+              {/* Audio/YouTube/AutoScroll Controls */}
+              {(audioControls?.hasAudio || (currentYouTube && audioTimings[song.id]?.length > 0) || autoScrollMode) && (
                 <div className="absolute top-4 left-4 flex gap-2 z-40">
                   {/* Audio Controls */}
-                  {audioControls?.hasAudio && (
+                  {audioControls?.hasAudio && !autoScrollMode && (
                     <>
                       <button
                         onClick={async () => {
@@ -1304,10 +1617,35 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                   )}
                   
                   {/* YouTube Sync Indicator */}
-                  {!audioControls?.hasAudio && currentYouTube && audioTimings[song.id]?.length > 0 && (
+                  {!audioControls?.hasAudio && !autoScrollMode && currentYouTube && audioTimings[song.id]?.length > 0 && (
                     <div className="w-12 h-12 rounded-full bg-red-600/30 text-red-300 border border-red-500/50 flex items-center justify-center text-lg font-bold" title="YouTube Sync Available">
                       ▶️
                     </div>
+                  )}
+                  
+                  {/* Auto-scroll Controls */}
+                  {autoScrollMode && (
+                    <>
+                      <button
+                        onClick={isAutoScrolling ? stopPerformanceAutoScroll : startPerformanceAutoScroll}
+                        className={`w-12 h-12 rounded-full transition-all duration-300 flex items-center justify-center text-lg font-bold border ${
+                          isAutoScrolling
+                            ? "bg-red-600/30 text-red-300 hover:bg-red-600/50 hover:text-white border-red-500/50"
+                            : "bg-green-600/30 text-green-300 hover:bg-green-600/50 hover:text-white border-green-500/50"
+                        }`}
+                        title={isAutoScrolling ? "Pause Auto-scroll" : "Start Auto-scroll"}
+                      >
+                        {isAutoScrolling ? "⏸️" : "▶️"}
+                      </button>
+                      
+                      <button
+                        onClick={resetPerformanceScroll}
+                        className="w-12 h-12 rounded-full bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-blue-500/50"
+                        title="Reset to Top"
+                      >
+                        ⏮️
+                      </button>
+                    </>
                   )}
                 </div>
               )}
@@ -1319,6 +1657,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                   {audioControls?.hasAudio && <div>Audio: Play/Pause • Auto-sync available</div>}
                   {!audioControls?.hasAudio && currentYouTube && audioTimings[song.id]?.length > 0 && (
                     <div>YouTube: Auto-sync with timing data</div>
+                  )}
+                  {autoScrollMode && (
+                    <div>Auto-scroll: Mouse wheel to adjust speed • Hover bottom for speed control</div>
                   )}
                   <div>Click sides to navigate</div>
                 </div>
@@ -1347,6 +1688,26 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                   title="Next line"
                 />
               </div>
+
+              {/* Auto-scroll speed control in performance mode */}
+              {autoScrollMode && (
+                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 opacity-0 hover:opacity-100 transition-all duration-300">
+                  <div className="bg-black/80 px-4 py-2 rounded flex items-center gap-3">
+                    <span className="text-xs text-orange-400">SPEED:</span>
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      value={getCurrentScrollSpeed()}
+                      onChange={(e) => setCurrentScrollSpeed(Number(e.target.value))}
+                      className="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                    />
+                    <span className="text-xs text-orange-400 min-w-[2ch]">
+                      {getCurrentScrollSpeed()}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Minimal progress indicator - Show audio or YouTube time */}
               <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${

@@ -6,6 +6,7 @@ export interface DatabaseData {
   loops: any[];
   customLyrics: Record<string, string>;
   timings: Record<string, TimingData[]>;
+  scrollSpeeds?: Record<string, number>;
 }
 
 export interface TimingData {
@@ -55,7 +56,8 @@ export const saveToDatabase = async (data: DatabaseData): Promise<{ success: boo
           notes: data.notes,
           youtube_links: data.youtubeLinks,
           loops: data.loops,
-          custom_lyrics: data.customLyrics
+          custom_lyrics: data.customLyrics,
+          scroll_speeds: data.scrollSpeeds || {}
         })
       })
     ];
@@ -124,7 +126,8 @@ export const loadFromDatabase = async (): Promise<{ success: boolean; data?: Dat
       youtubeLinks: userData.youtube_links || {},
       loops: userData.loops || [],
       customLyrics: userData.custom_lyrics || {},
-      timings
+      timings,
+      scrollSpeeds: userData.scroll_speeds || {}
     };
 
     return { success: true, data };
