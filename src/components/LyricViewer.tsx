@@ -267,8 +267,6 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   // Performance mode states (formerly karaoke)
   const [performanceMode, setPerformanceMode] = useState(false);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
-  const [isAutoMode, setIsAutoMode] = useState(true); // true = auto, false = manual
-  const [isPlaying, setIsPlaying] = useState(false);
   const [youtubeCurrentTime, setYoutubeCurrentTime] = useState(0);
   
   const lyricsRef = useRef<HTMLDivElement>(null);
@@ -316,33 +314,11 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   // YouTube time update handler
   const handleYouTubeTimeUpdate = (currentTime: number) => {
     setYoutubeCurrentTime(currentTime);
-    
-    if (performanceMode && isAutoMode && song) {
-      const timings = getLineTimings(song.id);
-      const currentLyrics = getCurrentLyrics();
-      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-      
-      // Find the current line based on timing
-      let newLineIndex = 0;
-      for (let i = 0; i < timings.length; i++) {
-        if (currentTime >= timings[i]) {
-          newLineIndex = i;
-        } else {
-          break;
-        }
-      }
-      
-      if (newLineIndex !== currentLineIndex && newLineIndex < lines.length) {
-        setCurrentLineIndex(newLineIndex);
-      }
-    }
   };
 
-  // YouTube play state handler
+  // YouTube play state handler  
   const handleYouTubePlayStateChange = (playing: boolean) => {
-    if (performanceMode && isAutoMode) {
-      setIsPlaying(playing);
-    }
+    // No auto sync in pure performance mode
   };
 
   // Keyboard shortcuts for lyrics editor
@@ -364,7 +340,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showLyricsEditor, hasUnsavedChanges, performanceMode]);
 
-  // Arrow key controls for manual performance mode
+  // Arrow key controls for performance mode
   useEffect(() => {
     if (!performanceMode || !song) return;
 
@@ -372,7 +348,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     const handleKeyDown = (e: KeyboardEvent) => {
       const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
       
-      // Song navigation (works in both auto and manual modes)
+      // Song navigation
       if (e.key === "PageUp" || (e.ctrlKey && e.key === "ArrowLeft")) {
         e.preventDefault();
         onSongChange?.('prev');
@@ -391,9 +367,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         return;
       }
       
-      // Line navigation (only in manual mode)
-      if (isAutoMode) return;
-      
+      // Line navigation
       switch (e.key) {
         case "ArrowRight":
         case " ": // Spacebar
@@ -417,26 +391,19 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [performanceMode, isAutoMode, song, customLyrics, onSongChange]);
+  }, [performanceMode, song, customLyrics, onSongChange]);
 
   const togglePerformanceMode = () => {
     const newMode = !performanceMode;
     setPerformanceMode(newMode);
     setCurrentLineIndex(0);
-    setIsPlaying(false);
     
     if (newMode) {
-      // Entering performance mode - show YouTube player and collapse sidebar if not already collapsed
-      setShowYouTube(true);
+      // Entering performance mode - collapse sidebar if not already collapsed
       if (!sidebarCollapsed) {
         onSidebarToggle(); // Auto-collapse sidebar
       }
     }
-  };
-
-  const toggleAutoMode = () => {
-    setIsAutoMode(prev => !prev);
-    setIsPlaying(false);
   };
 
   // Initialize edited lyrics when song changes
@@ -516,14 +483,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     input.click();
   };
 
-  // Get current lyrics (custom or original)
   const getCurrentLyrics = () => {
     if (!song) return "";
     return customLyrics[song.id] || song.lyrics;
-  };
-
-  const togglePlayPause = () => {
-    setIsPlaying(prev => !prev);
   };
 
   const handleMouseUp = useCallback(() => {
@@ -753,40 +715,6 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           >
             🎤 PERFORMANCE
           </button>
-          
-          {performanceMode && (
-            <>
-              <button
-                onClick={toggleAutoMode}
-                className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
-                  isAutoMode
-                    ? "border-blue-500 text-blue-500 bg-blue-500/10"
-                    : "border-orange-500 text-orange-500 bg-orange-500/10"
-                }`}
-              >
-                {isAutoMode ? "🤖 AUTO" : "👤 MANUAL"}
-              </button>
-              
-              {isAutoMode && (
-                <button
-                  onClick={togglePlayPause}
-                  className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
-                    isPlaying
-                      ? "border-red-500 text-red-500 bg-red-500/10"
-                      : "border-green-500 text-green-500 bg-green-500/10"
-                  }`}
-                >
-                  {isPlaying ? "⏸️ PAUSE" : "▶️ PLAY"}
-                </button>
-              )}
-              
-              {!isAutoMode && (
-                <span className="px-3 py-1 font-mono-ui text-xs text-muted-foreground border border-border">
-                  ← → LINES | PgUp/PgDn SONGS | SPACE | HOME/END
-                </span>
-              )}
-            </>
-          )}
 
           <button
             onClick={() => toggleVocalist("all")}
@@ -1051,78 +979,14 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         {/* Lyrics */}
         <div className="flex-1 flex flex-col min-h-0">
           {performanceMode ? (
-            // Performance Mode - Simple and Functional
+            // Performance Mode - Pure Lyrics Focus
             <div 
               ref={performanceContainerRef}
-              className="flex-1 flex flex-col bg-background relative"
+              className="flex-1 flex items-center justify-center bg-black text-white relative overflow-hidden"
             >
-              {/* Simple Top Bar */}
-              <div className="flex justify-between items-center p-4 border-b border-border bg-background/95">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => onSongChange?.('prev')}
-                    disabled={songIndex === 0}
-                    className={`px-3 py-1 text-sm border rounded ${
-                      songIndex === 0
-                        ? "border-border text-muted-foreground cursor-not-allowed"
-                        : "border-border text-foreground hover:border-primary"
-                    }`}
-                  >
-                    ← Prev
-                  </button>
-                  <span className="text-sm text-muted-foreground">
-                    {songIndex + 1}/{totalSongs} - {song.title}
-                  </span>
-                  <button
-                    onClick={() => onSongChange?.('next')}
-                    disabled={songIndex >= totalSongs - 1}
-                    className={`px-3 py-1 text-sm border rounded ${
-                      songIndex >= totalSongs - 1
-                        ? "border-border text-muted-foreground cursor-not-allowed"
-                        : "border-border text-foreground hover:border-primary"
-                    }`}
-                  >
-                    Next →
-                  </button>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={toggleAutoMode}
-                    className={`px-3 py-1 text-sm border rounded ${
-                      isAutoMode
-                        ? "border-blue-500 text-blue-500 bg-blue-500/10"
-                        : "border-orange-500 text-orange-500 bg-orange-500/10"
-                    }`}
-                  >
-                    {isAutoMode ? "Auto" : "Manual"}
-                  </button>
-                  
-                  {isAutoMode && (
-                    <button
-                      onClick={togglePlayPause}
-                      className={`px-3 py-1 text-sm border rounded ${
-                        isPlaying
-                          ? "border-red-500 text-red-500 bg-red-500/10"
-                          : "border-green-500 text-green-500 bg-green-500/10"
-                      }`}
-                    >
-                      {isPlaying ? "Pause" : "Play"}
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={togglePerformanceMode}
-                    className="px-3 py-1 text-sm border border-red-500 text-red-500 hover:bg-red-500/10 rounded"
-                  >
-                    Exit
-                  </button>
-                </div>
-              </div>
-
-              {/* Lyrics Display */}
-              <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-                <div className="w-full max-w-4xl text-center">
+              {/* Pure Lyrics Display - Full Screen */}
+              <div className="w-full h-full flex items-center justify-center p-8">
+                <div className="w-full max-w-6xl text-center">
                   {(() => {
                     const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
                     const currentLine = lines[currentLineIndex] || "";
@@ -1130,21 +994,21 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                     const prevLine = lines[currentLineIndex - 1] || "";
 
                     return (
-                      <div className="space-y-6">
-                        {/* Previous Line */}
+                      <div className="space-y-8">
+                        {/* Previous Line - Subtle */}
                         {prevLine && (
-                          <div className="opacity-50">
-                            <div className="text-lg text-muted-foreground">
+                          <div className="opacity-30 transition-all duration-500">
+                            <div className="text-xl md:text-2xl text-gray-400 font-light">
                               {prevLine}
                             </div>
                           </div>
                         )}
 
                         {/* Current Line - Main Focus */}
-                        <div className="py-4">
-                          <div className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight">
+                        <div className="transition-all duration-700">
+                          <div className="text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-white leading-tight">
                             {currentLine.startsWith("[") && currentLine.endsWith("]") ? (
-                              <span className="text-primary text-2xl md:text-3xl lg:text-4xl uppercase tracking-wider font-medium">
+                              <span className="text-blue-400 text-3xl md:text-4xl lg:text-5xl uppercase tracking-wider font-medium">
                                 {currentLine.slice(1, -1)}
                               </span>
                             ) : (
@@ -1153,10 +1017,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                           </div>
                         </div>
 
-                        {/* Next Line */}
+                        {/* Next Line - Subtle */}
                         {nextLine && (
-                          <div className="opacity-50">
-                            <div className="text-lg text-muted-foreground">
+                          <div className="opacity-30 transition-all duration-500">
+                            <div className="text-xl md:text-2xl text-gray-400 font-light">
                               {nextLine}
                             </div>
                           </div>
@@ -1167,48 +1031,43 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 </div>
               </div>
 
-              {/* Bottom Controls */}
-              <div className="flex justify-center items-center p-4 border-t border-border bg-background/95">
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => {
-                      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                      setCurrentLineIndex(prev => Math.max(prev - 1, 0));
-                    }}
-                    disabled={currentLineIndex === 0}
-                    className={`px-4 py-2 text-sm border rounded ${
-                      currentLineIndex === 0
-                        ? "border-border text-muted-foreground cursor-not-allowed"
-                        : "border-border text-foreground hover:border-primary"
-                    }`}
-                  >
-                    ← Previous Line
-                  </button>
+              {/* Minimal Exit Button - Only visible on hover */}
+              <button
+                onClick={togglePerformanceMode}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-red-600/20 text-red-400 hover:bg-red-600/40 transition-all duration-300 opacity-0 hover:opacity-100 flex items-center justify-center text-lg"
+                title="Exit Performance Mode (ESC)"
+              >
+                ×
+              </button>
 
-                  <span className="text-sm text-muted-foreground px-4">
-                    Line {currentLineIndex + 1} of {currentLyrics.split("\n").filter(line => line.trim() !== "").length}
-                  </span>
+              {/* Invisible click areas for navigation */}
+              <div className="absolute inset-0 flex pointer-events-none">
+                {/* Left third - Previous line */}
+                <div 
+                  className="w-1/3 h-full pointer-events-auto cursor-pointer"
+                  onClick={() => {
+                    const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                    setCurrentLineIndex(prev => Math.max(prev - 1, 0));
+                  }}
+                  title="Previous line"
+                />
+                {/* Middle third - No action */}
+                <div className="w-1/3 h-full" />
+                {/* Right third - Next line */}
+                <div 
+                  className="w-1/3 h-full pointer-events-auto cursor-pointer"
+                  onClick={() => {
+                    const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                    setCurrentLineIndex(prev => Math.min(prev + 1, lines.length - 1));
+                  }}
+                  title="Next line"
+                />
+              </div>
 
-                  <button
-                    onClick={() => {
-                      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                      setCurrentLineIndex(prev => Math.min(prev + 1, lines.length - 1));
-                    }}
-                    disabled={(() => {
-                      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                      return currentLineIndex >= lines.length - 1;
-                    })()}
-                    className={`px-4 py-2 text-sm border rounded ${
-                      (() => {
-                        const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                        return currentLineIndex >= lines.length - 1;
-                      })()
-                        ? "border-border text-muted-foreground cursor-not-allowed"
-                        : "border-border text-foreground hover:border-primary"
-                    }`}
-                  >
-                    Next Line →
-                  </button>
+              {/* Minimal progress indicator - Only visible on hover */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 hover:opacity-100 transition-all duration-300">
+                <div className="text-xs text-gray-500 bg-black/50 px-2 py-1 rounded">
+                  {currentLineIndex + 1} / {currentLyrics.split("\n").filter(line => line.trim() !== "").length}
                 </div>
               </div>
             </div>
