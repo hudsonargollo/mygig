@@ -95,7 +95,13 @@ const mergeAnnotations = (userAnnotations: TextAnnotation[]): TextAnnotation[] =
   // Create a map of erased areas (areas user explicitly cleared)
   const erasedAreas = userAnnotations
     .filter((ann: any) => ann.isErased)
-    .map(ann => ({ songId: ann.songId, lineIndex: ann.lineIndex, startOffset: ann.startOffset, endOffset: ann.endOffset }));
+    .map(ann => ({ 
+      songId: ann.songId, 
+      lineIndex: ann.lineIndex, 
+      startOffset: ann.startOffset, 
+      endOffset: ann.endOffset,
+      vocalist: ann.vocalist // Include vocalist to match exact erased annotation
+    }));
   
   // Add default annotations that don't conflict with user annotations or erased areas
   const mergedAnnotations = [...userAnnotations.filter((ann: any) => !ann.isErased)]; // Remove erased markers from final result
@@ -106,14 +112,24 @@ const mergeAnnotations = (userAnnotations: TextAnnotation[]): TextAnnotation[] =
     // Skip if user has this exact annotation
     if (userAnnotationMap.has(key)) continue;
     
-    // Skip if this area was explicitly erased by user
-    const isInErasedArea = erasedAreas.some(erased => 
+    // Skip if this exact annotation was explicitly erased by user
+    const isExactlyErased = erasedAreas.some(erased => 
       erased.songId === defaultAnn.songId &&
       erased.lineIndex === defaultAnn.lineIndex &&
+      erased.startOffset === defaultAnn.startOffset &&
+      erased.endOffset === defaultAnn.endOffset &&
+      erased.vocalist === defaultAnn.vocalist
+    );
+    
+    // Also skip if this annotation overlaps with any erased area of the same vocalist
+    const isOverlapErased = erasedAreas.some(erased => 
+      erased.songId === defaultAnn.songId &&
+      erased.lineIndex === defaultAnn.lineIndex &&
+      erased.vocalist === defaultAnn.vocalist &&
       !(defaultAnn.endOffset <= erased.startOffset || defaultAnn.startOffset >= erased.endOffset)
     );
     
-    if (!isInErasedArea) {
+    if (!isExactlyErased && !isOverlapErased) {
       mergedAnnotations.push(defaultAnn);
     }
   }
@@ -614,6 +630,8 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     if (mode === "eraser") {
       setAnnotations((prev) => {
         let updated = [...prev];
+        
+        // First, remove all existing annotations in the selected range
         for (let li = startLineIdx; li <= endLineIdx; li++) {
           const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
           if (offsets) {
@@ -621,29 +639,33 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           }
         }
         
-        // For eraser mode, we need to create "negative" annotations to override defaults
-        // Create user annotations that explicitly mark the erased areas as "no vocalist"
+        // Create "erased" markers to prevent default annotations from reappearing
         const erasedAreas: TextAnnotation[] = [];
         for (let li = startLineIdx; li <= endLineIdx; li++) {
           const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
           if (offsets) {
             // Check if any default annotations exist in this range
-            const hasDefaults = DEFAULT_ANNOTATIONS.some(def => 
+            const overlappingDefaults = DEFAULT_ANNOTATIONS.filter(def => 
               def.songId === song.id && 
               def.lineIndex === offsets.lineIndex &&
               !(def.endOffset <= offsets.startOffset || def.startOffset >= offsets.endOffset)
             );
             
-            if (hasDefaults) {
-              // Create a special "erased" marker that will override defaults
-              erasedAreas.push({
-                songId: song.id,
-                lineIndex: offsets.lineIndex,
-                startOffset: offsets.startOffset,
-                endOffset: offsets.endOffset,
-                vocalist: "elektra", // We'll use a special flag to mark as erased
-                isErased: true // Add custom property to mark as intentionally erased
-              } as any);
+            // Create erased markers for each overlapping default annotation
+            for (const defaultAnn of overlappingDefaults) {
+              const eraseStart = Math.max(offsets.startOffset, defaultAnn.startOffset);
+              const eraseEnd = Math.min(offsets.endOffset, defaultAnn.endOffset === -1 ? offsets.endOffset : defaultAnn.endOffset);
+              
+              if (eraseStart < eraseEnd) {
+                erasedAreas.push({
+                  songId: song.id,
+                  lineIndex: offsets.lineIndex,
+                  startOffset: eraseStart,
+                  endOffset: eraseEnd,
+                  vocalist: defaultAnn.vocalist, // Use the same vocalist as the default to override it
+                  isErased: true // Mark as intentionally erased
+                } as any);
+              }
             }
           }
         }
@@ -651,17 +673,20 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         // Add erased areas to updated annotations
         updated.push(...erasedAreas);
         
-        // Save user annotations (including erased areas)
+        // Save user annotations (including erased areas) to localStorage
         const userOnly = updated.filter(ann => {
           const key = `${ann.songId}-${ann.lineIndex}-${ann.startOffset}-${ann.endOffset}-${ann.vocalist}`;
-          return !DEFAULT_ANNOTATIONS.some(def => 
+          const isDefault = DEFAULT_ANNOTATIONS.some(def => 
             `${def.songId}-${def.lineIndex}-${def.startOffset}-${def.endOffset}-${def.vocalist}` === key
           );
+          // Include if it's not a default annotation OR if it's an erased marker
+          return !isDefault || (ann as any).isErased;
         });
         save(STORAGE_KEY, userOnly);
         
-        // Return updated annotations without re-merging defaults for erased areas
-        return updated;
+        // Re-merge with defaults (erased areas will prevent defaults from showing)
+        const merged = mergeAnnotations(userOnly);
+        return merged;
       });
       selection.removeAllRanges();
       return;
