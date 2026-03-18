@@ -806,8 +806,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
 
   return (
     <div className="flex-1 flex flex-col bg-background h-full">
-      {/* Header */}
-      <div className="border-b border-border p-6 flex items-end justify-between shrink-0 flex-wrap gap-2">
+      {/* Header - Hidden in performance mode */}
+      {!performanceMode && (
+        <div className="border-b border-border p-6 flex items-end justify-between shrink-0 flex-wrap gap-2">
         <div>
           <span className="font-mono-ui text-xs text-muted-foreground">
             TRACK {String(songIndex + 1).padStart(2, "0")}
@@ -934,9 +935,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           </button>
         </div>
       </div>
+      )}
 
-      {/* YouTube Player */}
-      {(showYouTube || performanceMode) && (
+      {/* YouTube Player - Hidden in performance mode */}
+      {showYouTube && !performanceMode && (
         <YouTubePlayer
           youtubeUrl={currentYouTube}
           songTitle={song.title}
@@ -948,8 +950,8 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         />
       )}
 
-      {/* Pending loop dialog */}
-      {pendingLoop && (
+      {/* Pending loop dialog - Hidden in performance mode */}
+      {pendingLoop && !performanceMode && (
         <div className="border-b border-primary bg-muted/50 px-6 py-3 flex items-center gap-3 flex-wrap">
           <span className="font-mono-ui text-xs text-primary">🔁 DEFINIR LOOP:</span>
           <input
@@ -989,8 +991,8 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         </div>
       )}
 
-      {/* Editing loop dialog */}
-      {editingLoop && (
+      {/* Editing loop dialog - Hidden in performance mode */}
+      {editingLoop && !performanceMode && (
         <div className="border-b border-primary bg-muted/50 px-6 py-3 flex items-center gap-3 flex-wrap">
           <span className="font-mono-ui text-xs text-primary">✏️ EDITAR LOOP:</span>
           <input
@@ -1030,8 +1032,8 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         </div>
       )}
 
-      {/* Instruction banner */}
-      {mode === "vocalist" && activeVocalist && (
+      {/* Instruction banner - Hidden in performance mode */}
+      {mode === "vocalist" && activeVocalist && !performanceMode && (
         <div className={`px-6 py-2 text-xs font-mono-ui border-b border-border ${
           activeVocalist === "all" 
             ? "text-primary bg-muted/30"
@@ -1046,19 +1048,19 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           {" "}Pode sobrepor com outros vocalistas. Clique duplo numa linha para limpar tudo.
         </div>
       )}
-      {mode === "eraser" && (
+      {mode === "eraser" && !performanceMode && (
         <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-destructive bg-muted/30">
           <Eraser size={12} className="inline mr-1" /> Selecione texto para limpar marcações de vocalista.
         </div>
       )}
-      {mode === "loop" && !pendingLoop && (
+      {mode === "loop" && !pendingLoop && !performanceMode && (
         <div className="px-6 py-2 text-xs font-mono-ui border-b border-border text-primary bg-muted/30">
           🔁 Selecione um trecho da letra ou clique num título de seção para criar um loop.
         </div>
       )}
 
-      {/* Saved loops bar */}
-      {songLoops.length > 0 && (
+      {/* Saved loops bar - Hidden in performance mode */}
+      {songLoops.length > 0 && !performanceMode && (
         <div className="px-6 py-2 border-b border-border flex items-center gap-2 flex-wrap bg-muted/20">
           <span className="font-mono-ui text-xs text-muted-foreground shrink-0">LOOPS:</span>
           {songLoops.map((loop) => (
@@ -1106,12 +1108,12 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         {/* Lyrics */}
         <div className="flex-1 flex flex-col min-h-0">
           {performanceMode ? (
-            // Performance Mode - Pure Lyrics Focus
+            // Performance Mode - Pure Lyrics with Vocalist Markings
             <div 
               ref={performanceContainerRef}
               className="flex-1 flex items-center justify-center bg-black text-white relative overflow-hidden"
             >
-              {/* Pure Lyrics Display - Full Screen */}
+              {/* Pure Lyrics Display with Vocalist Annotations */}
               <div className="w-full h-full flex items-center justify-center p-8">
                 <div className="w-full max-w-6xl text-center">
                   {(() => {
@@ -1122,33 +1124,53 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
 
                     return (
                       <div className="space-y-8">
-                        {/* Previous Line - Subtle */}
+                        {/* Previous Line - Subtle with vocalist markings */}
                         {prevLine && (
                           <div className="opacity-30 transition-all duration-500">
-                            <div className="text-xl md:text-2xl text-gray-400 font-light">
-                              {prevLine}
+                            <div className="text-xl md:text-2xl text-gray-400 font-light text-center">
+                              {(() => {
+                                const prevLineIndex = currentLineIndex - 1;
+                                const segments = getLineSegments(prevLine, annotations, song.id, prevLineIndex);
+                                return segments.map((seg, si) => (
+                                  <PerformanceSegmentSpan key={si} segment={seg} />
+                                ));
+                              })()}
                             </div>
                           </div>
                         )}
 
-                        {/* Current Line - Main Focus */}
+                        {/* Current Line - Main Focus with vocalist markings */}
                         <div className="transition-all duration-700">
-                          <div className="text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-white leading-tight">
+                          <div className="text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-white leading-tight text-center mx-auto max-w-full break-words">
                             {currentLine.startsWith("[") && currentLine.endsWith("]") ? (
-                              <span className="text-blue-400 text-3xl md:text-4xl lg:text-5xl uppercase tracking-wider font-medium">
+                              <span className="text-blue-400 text-3xl md:text-4xl lg:text-5xl uppercase tracking-wider font-medium block">
                                 {currentLine.slice(1, -1)}
                               </span>
                             ) : (
-                              currentLine
+                              // Show lyrics with vocalist annotations
+                              <span className="block leading-tight">
+                                {(() => {
+                                  const segments = getLineSegments(currentLine, annotations, song.id, currentLineIndex);
+                                  return segments.map((seg, si) => (
+                                    <PerformanceSegmentSpan key={si} segment={seg} />
+                                  ));
+                                })()}
+                              </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Next Line - Subtle */}
+                        {/* Next Line - Subtle with vocalist markings */}
                         {nextLine && (
                           <div className="opacity-30 transition-all duration-500">
-                            <div className="text-xl md:text-2xl text-gray-400 font-light">
-                              {nextLine}
+                            <div className="text-xl md:text-2xl text-gray-400 font-light text-center">
+                              {(() => {
+                                const nextLineIndex = currentLineIndex + 1;
+                                const segments = getLineSegments(nextLine, annotations, song.id, nextLineIndex);
+                                return segments.map((seg, si) => (
+                                  <PerformanceSegmentSpan key={si} segment={seg} />
+                                ));
+                              })()}
                             </div>
                           </div>
                         )}
@@ -1381,6 +1403,55 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         )}
       </div>
     </div>
+  );
+};
+
+/** Renders a single segment for performance mode with vocalist colors */
+const PerformanceSegmentSpan = ({ segment }: { segment: LineSegment }) => {
+  const { text, vocalists } = segment;
+
+  if (vocalists.length === 0) {
+    return <span className="text-white">{text}</span>;
+  }
+
+  if (vocalists.length === 1) {
+    const colors = VOCALIST_COLORS[vocalists[0]];
+    // Use brighter colors for performance mode on black background
+    const performanceColors = {
+      elektra: "text-cyan-300 bg-cyan-500/20",
+      chinoda: "text-yellow-300 bg-yellow-500/20", 
+      luan: "text-orange-300 bg-orange-500/20"
+    };
+    return (
+      <span className={`${performanceColors[vocalists[0]]} px-1 rounded`}>
+        {text}
+      </span>
+    );
+  }
+
+  // Multi-vocalist: enhanced gradient for performance mode
+  const bgColors = vocalists.map((v) => VOCALIST_COLORS[v].css);
+  const isAllVocalists = vocalists.length === 3;
+  
+  const gradientStyle: React.CSSProperties = {
+    backgroundImage: `linear-gradient(90deg, ${bgColors.join(", ")})`,
+    backgroundSize: "100% 4px",
+    backgroundPosition: "bottom",
+    backgroundRepeat: "no-repeat",
+    paddingBottom: "6px",
+    color: "white",
+    fontWeight: isAllVocalists ? "bold" : "normal",
+  };
+
+  return (
+    <span className="relative inline-block">
+      <span
+        className="text-white px-1"
+        style={gradientStyle}
+      >
+        {text}
+      </span>
+    </span>
   );
 };
 
