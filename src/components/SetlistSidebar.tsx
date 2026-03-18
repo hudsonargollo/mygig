@@ -45,6 +45,48 @@ const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder, onTogg
     dragItem.current = null;
   }, []);
 
+  // Minimized sidebar when collapsed
+  if (isCollapsed) {
+    return (
+      <div className="w-16 h-full bg-surface border-r border-border flex flex-col">
+        {/* Minimized header with hamburger */}
+        <div className="p-2 border-b border-border flex items-center justify-center">
+          <button
+            onClick={onToggleCollapse}
+            className="w-12 h-8 flex items-center justify-center font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
+            title="Expand sidebar"
+          >
+            ☰
+          </button>
+        </div>
+
+        {/* Minimized song list - just numbers */}
+        <div className="flex-1 overflow-y-auto">
+          {songs.map((song, index) => {
+            const isActive = song.id === selectedSongId;
+
+            return (
+              <div
+                key={song.id}
+                onClick={() => onSelectSong(song.id)}
+                className={`
+                  w-full h-12 flex items-center justify-center cursor-pointer
+                  border-b border-border font-mono-ui text-sm font-bold
+                  transition-none
+                  ${isActive ? "bg-muted text-primary" : "text-muted-foreground hover:text-accent hover:bg-muted/30"}
+                `}
+                title={`${index + 1}. ${song.title}`}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Full sidebar when expanded
   return (
     <div className="w-full h-full bg-surface border-r border-border flex flex-col">
       <div className="p-4 border-b border-border flex items-center justify-between">

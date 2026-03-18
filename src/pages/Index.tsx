@@ -64,9 +64,9 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Setlist - Collapsible */}
+      {/* Setlist - Collapsible with minimized version */}
       <div className={`transition-all duration-300 h-full overflow-hidden ${
-        sidebarCollapsed ? 'w-0' : 'w-1/4 min-w-[240px] max-w-[360px]'
+        sidebarCollapsed ? 'w-16' : 'w-1/4 min-w-[240px] max-w-[360px]'
       }`}>
         <SetlistSidebar
           songs={songs}
