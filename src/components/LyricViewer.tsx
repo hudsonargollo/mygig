@@ -38,8 +38,9 @@ const LYRICS_KEY = "lp-setlist-custom-lyrics";
 // ⚫️ giulia (white in HTML) = elektra (Giulia), 🔴 hudson (red) = chinoda (Hudson), 🔵 everyone (blue) = all three
 const DEFAULT_ANNOTATIONS: TextAnnotation[] = [
   // 1. SOMEWHERE I BELONG - Based on HTML markings
-  { songId: "somewhere-i-belong", lineIndex: 2, startOffset: 1, endOffset: 16, vocalist: "elektra" }, // "(When this began)"
-  { songId: "somewhere-i-belong", lineIndex: 2, startOffset: 17, endOffset: -1, vocalist: "chinoda" }, // Hudson part
+  { songId: "somewhere-i-belong", lineIndex: 0, startOffset: 1, endOffset: 16, vocalist: "elektra" }, // "(When this began)"
+  { songId: "somewhere-i-belong", lineIndex: 0, startOffset: 17, endOffset: -1, vocalist: "chinoda" }, // Hudson part
+  // Removed the incorrect line 2 annotations that were causing the pink text
   { songId: "somewhere-i-belong", lineIndex: 11, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "I wanna heal..."
   { songId: "somewhere-i-belong", lineIndex: 18, startOffset: 0, endOffset: -1, vocalist: "elektra" }, // "Somewhere I belong" - everyone
   { songId: "somewhere-i-belong", lineIndex: 18, startOffset: 0, endOffset: -1, vocalist: "chinoda" },
@@ -905,6 +906,18 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
             }`}
           >
             <Eraser size={14} className="inline mr-1" />LIMPAR
+          </button>
+          <button
+            onClick={() => {
+              // Clear all annotations for debugging
+              setAnnotations([]);
+              save(STORAGE_KEY, []);
+              console.log('All annotations cleared');
+            }}
+            className="px-3 py-1 font-mono-ui text-xs border border-red-500 text-red-500 hover:bg-red-500/10 transition-none"
+            title="Clear all annotations (debug)"
+          >
+            🗑️ CLEAR ALL
           </button>
           <button
             onClick={toggleLoopMode}
