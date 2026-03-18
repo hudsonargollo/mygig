@@ -1091,79 +1091,74 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         {/* Lyrics */}
         <div className="flex-1 overflow-hidden">
           {performanceMode ? (
-            // Performance Mode - Sliding Lyrics with Mouse Controls
+            // Performance Mode - Minimalist Design with Focus on Lyrics
             <div 
               ref={performanceContainerRef}
-              className="h-full flex flex-col bg-gradient-to-b from-background via-background/95 to-background relative"
+              className="h-full flex flex-col bg-background relative"
             >
-              {/* Large Mouse Navigation Controls - Top Bar */}
-              <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-gradient-to-b from-background/90 to-transparent">
-                {/* Song Navigation */}
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => onSongChange?.('prev')}
-                    disabled={songIndex === 0}
-                    className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 ${
-                      songIndex === 0
-                        ? "bg-muted/30 text-muted-foreground cursor-not-allowed"
-                        : "bg-primary/20 text-primary hover:bg-primary/30 hover:scale-110 active:scale-95 cursor-pointer"
-                    }`}
-                    title="Previous Song"
-                  >
-                    ⏮️
-                  </button>
-                  <div className="text-center">
-                    <div className="font-mono-ui text-xs text-muted-foreground">SONG</div>
-                    <div className="font-mono-ui text-lg font-bold text-foreground">
-                      {songIndex + 1} / {totalSongs}
+              {/* Discreet Top Controls - Only visible on hover */}
+              <div className="absolute top-0 left-0 right-0 z-10 opacity-0 hover:opacity-100 transition-opacity duration-300">
+                <div className="flex justify-between items-center p-3 bg-background/80 backdrop-blur-sm">
+                  {/* Song Navigation - Minimalist */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onSongChange?.('prev')}
+                      disabled={songIndex === 0}
+                      className={`w-8 h-8 rounded flex items-center justify-center text-sm transition-colors ${
+                        songIndex === 0
+                          ? "text-muted-foreground/50 cursor-not-allowed"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }`}
+                      title="Previous Song (PgUp)"
+                    >
+                      ‹
+                    </button>
+                    <div className="px-2 py-1 text-xs font-mono-ui text-muted-foreground bg-muted/30 rounded">
+                      {songIndex + 1}/{totalSongs}
                     </div>
+                    <button
+                      onClick={() => onSongChange?.('next')}
+                      disabled={songIndex >= totalSongs - 1}
+                      className={`w-8 h-8 rounded flex items-center justify-center text-sm transition-colors ${
+                        songIndex >= totalSongs - 1
+                          ? "text-muted-foreground/50 cursor-not-allowed"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }`}
+                      title="Next Song (PgDn)"
+                    >
+                      ›
+                    </button>
                   </div>
-                  <button
-                    onClick={() => onSongChange?.('next')}
-                    disabled={songIndex >= totalSongs - 1}
-                    className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 ${
-                      songIndex >= totalSongs - 1
-                        ? "bg-muted/30 text-muted-foreground cursor-not-allowed"
-                        : "bg-primary/20 text-primary hover:bg-primary/30 hover:scale-110 active:scale-95 cursor-pointer"
-                    }`}
-                    title="Next Song"
-                  >
-                    ⏭️
-                  </button>
-                </div>
 
-                {/* Exit Performance Mode and Fullscreen */}
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    className="w-16 h-16 rounded-full bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:scale-110 active:scale-95 flex items-center justify-center text-2xl font-bold transition-all duration-200"
-                    title="Show Help (F1)"
-                  >
-                    ❓
-                  </button>
-                  <button
-                    onClick={toggleFullscreen}
-                    className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 ${
-                      isFullscreen
-                        ? "bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30"
-                        : "bg-green-500/20 text-green-500 hover:bg-green-500/30"
-                    } hover:scale-110 active:scale-95 cursor-pointer`}
-                    title={isFullscreen ? "Exit Fullscreen (F11)" : "Enter Fullscreen (F11)"}
-                  >
-                    {isFullscreen ? "🔳" : "⛶"}
-                  </button>
-                  <button
-                    onClick={togglePerformanceMode}
-                    className="w-16 h-16 rounded-full bg-red-500/20 text-red-500 hover:bg-red-500/30 hover:scale-110 active:scale-95 flex items-center justify-center text-2xl font-bold transition-all duration-200"
-                    title="Exit Performance Mode (ESC)"
-                  >
-                    ✕
-                  </button>
+                  {/* Exit Controls - Minimalist */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowHelp(true)}
+                      className="w-8 h-8 rounded flex items-center justify-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      title="Help (F1)"
+                    >
+                      ?
+                    </button>
+                    <button
+                      onClick={toggleFullscreen}
+                      className="w-8 h-8 rounded flex items-center justify-center text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      title={isFullscreen ? "Exit Fullscreen (F11)" : "Fullscreen (F11)"}
+                    >
+                      {isFullscreen ? "⌐" : "⌐"}
+                    </button>
+                    <button
+                      onClick={togglePerformanceMode}
+                      className="w-8 h-8 rounded flex items-center justify-center text-xs text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                      title="Exit Performance Mode (ESC)"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Main Lyrics Display */}
-              <div className="flex-1 flex flex-col justify-center items-center p-8 pt-24">
+              {/* Main Lyrics Display - Full Focus */}
+              <div className="flex-1 flex flex-col justify-center items-center px-8">
                 <div className="w-full max-w-6xl">
                   {(() => {
                     const lines = currentLyrics.split("\n");
@@ -1173,39 +1168,36 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                     const prevLine = nonEmptyLines[currentLineIndex - 1] || "";
 
                     return (
-                      <div className="space-y-12">
-                        {/* Previous Line */}
-                        <div className="text-center opacity-40 transform translate-x-[-100px] transition-all duration-500">
-                          <div className="font-mono-body text-2xl md:text-3xl font-medium text-muted-foreground">
+                      <div className="space-y-8">
+                        {/* Previous Line - Subtle */}
+                        <div className="text-center opacity-30 transition-all duration-500">
+                          <div className="font-mono-body text-xl md:text-2xl font-medium text-muted-foreground">
                             {prevLine}
                           </div>
                         </div>
 
-                        {/* Current Line - Main Focus - Optimized for old iMac */}
-                        <div className="text-center transform translate-x-0 transition-all duration-700 ease-out">
-                          <div className="font-mono-body text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-foreground leading-tight tracking-wide drop-shadow-2xl"
+                        {/* Current Line - Main Focus */}
+                        <div className="text-center transition-all duration-700 ease-out">
+                          <div className="font-mono-body text-6xl md:text-8xl lg:text-9xl xl:text-[12rem] font-bold text-foreground leading-tight tracking-wide"
                                style={{
-                                 textShadow: '0 0 20px rgba(0,0,0,0.8), 0 4px 8px rgba(0,0,0,0.6), 0 0 40px rgba(255,255,255,0.1)',
-                                 filter: 'contrast(1.2) brightness(1.1)',
+                                 textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                                 filter: 'contrast(1.1)',
                                }}>
                             {currentLine.startsWith("[") && currentLine.endsWith("]") ? (
-                              <span className="text-primary/90 text-4xl md:text-5xl lg:text-6xl xl:text-7xl uppercase tracking-widest"
-                                    style={{
-                                      textShadow: '0 0 15px rgba(var(--primary), 0.6), 0 2px 4px rgba(0,0,0,0.8)',
-                                    }}>
+                              <span className="text-primary text-3xl md:text-4xl lg:text-5xl xl:text-6xl uppercase tracking-widest font-medium">
                                 {currentLine.slice(1, -1)}
                               </span>
                             ) : (
-                              <span className="drop-shadow-lg">
+                              <span>
                                 {currentLine}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Next Line */}
-                        <div className="text-center opacity-60 transform translate-x-[100px] transition-all duration-500">
-                          <div className="font-mono-body text-2xl md:text-3xl font-medium text-muted-foreground">
+                        {/* Next Line - Subtle */}
+                        <div className="text-center opacity-50 transition-all duration-500">
+                          <div className="font-mono-body text-xl md:text-2xl font-medium text-muted-foreground">
                             {nextLine}
                           </div>
                         </div>
@@ -1215,99 +1207,101 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 </div>
               </div>
 
-              {/* Large Mouse Navigation Controls - Bottom Bar */}
-              <div className="absolute bottom-0 left-0 right-0 z-10 p-6 bg-gradient-to-t from-background/90 to-transparent">
-                <div className="flex justify-center items-center gap-8">
-                  {/* Line Navigation */}
-                  <button
-                    onClick={() => {
-                      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                      setCurrentLineIndex(prev => Math.max(prev - 1, 0));
-                    }}
-                    disabled={currentLineIndex === 0}
-                    className={`w-20 h-20 rounded-full flex items-center justify-center text-4xl font-bold transition-all duration-200 ${
-                      currentLineIndex === 0
-                        ? "bg-muted/30 text-muted-foreground cursor-not-allowed"
-                        : "bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:scale-110 active:scale-95 cursor-pointer"
-                    }`}
-                    title="Previous Line"
-                  >
-                    ⬅️
-                  </button>
-
-                  {/* Play/Pause for Auto Mode */}
-                  {isAutoMode && (
+              {/* Discreet Bottom Controls - Only visible on hover */}
+              <div className="absolute bottom-0 left-0 right-0 z-10 opacity-0 hover:opacity-100 transition-opacity duration-300">
+                <div className="p-4 bg-background/80 backdrop-blur-sm">
+                  <div className="flex justify-center items-center gap-4">
+                    {/* Line Navigation - Minimalist */}
                     <button
-                      onClick={togglePlayPause}
-                      className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold transition-all duration-200 ${
-                        isPlaying
-                          ? "bg-red-500/20 text-red-500 hover:bg-red-500/30"
-                          : "bg-green-500/20 text-green-500 hover:bg-green-500/30"
-                      } hover:scale-110 active:scale-95 cursor-pointer`}
-                      title={isPlaying ? "Pause" : "Play"}
+                      onClick={() => {
+                        const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                        setCurrentLineIndex(prev => Math.max(prev - 1, 0));
+                      }}
+                      disabled={currentLineIndex === 0}
+                      className={`w-10 h-10 rounded flex items-center justify-center text-lg transition-colors ${
+                        currentLineIndex === 0
+                          ? "text-muted-foreground/50 cursor-not-allowed"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }`}
+                      title="Previous Line (←)"
                     >
-                      {isPlaying ? "⏸️" : "▶️"}
+                      ‹
                     </button>
-                  )}
 
-                  {/* Mode Toggle */}
-                  <button
-                    onClick={toggleAutoMode}
-                    className={`w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 ${
-                      isAutoMode
-                        ? "bg-blue-500/20 text-blue-500 hover:bg-blue-500/30"
-                        : "bg-orange-500/20 text-orange-500 hover:bg-orange-500/30"
-                    } hover:scale-110 active:scale-95 cursor-pointer`}
-                    title={isAutoMode ? "Switch to Manual" : "Switch to Auto"}
-                  >
-                    {isAutoMode ? "🤖" : "👤"}
-                  </button>
+                    {/* Play/Pause for Auto Mode - Minimalist */}
+                    {isAutoMode && (
+                      <button
+                        onClick={togglePlayPause}
+                        className={`w-12 h-12 rounded flex items-center justify-center text-lg transition-colors ${
+                          isPlaying
+                            ? "text-red-500 hover:bg-red-500/10"
+                            : "text-green-500 hover:bg-green-500/10"
+                        }`}
+                        title={isPlaying ? "Pause" : "Play"}
+                      >
+                        {isPlaying ? "⏸" : "▶"}
+                      </button>
+                    )}
 
-                  <button
-                    onClick={() => {
-                      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                      setCurrentLineIndex(prev => Math.min(prev + 1, lines.length - 1));
-                    }}
-                    disabled={(() => {
-                      const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
-                      return currentLineIndex >= lines.length - 1;
-                    })()}
-                    className={`w-20 h-20 rounded-full flex items-center justify-center text-4xl font-bold transition-all duration-200 ${
-                      (() => {
+                    {/* Mode Toggle - Minimalist */}
+                    <button
+                      onClick={toggleAutoMode}
+                      className={`w-10 h-10 rounded flex items-center justify-center text-xs font-mono-ui transition-colors ${
+                        isAutoMode
+                          ? "text-blue-500 hover:bg-blue-500/10"
+                          : "text-orange-500 hover:bg-orange-500/10"
+                      }`}
+                      title={isAutoMode ? "Switch to Manual" : "Switch to Auto"}
+                    >
+                      {isAutoMode ? "A" : "M"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                        setCurrentLineIndex(prev => Math.min(prev + 1, lines.length - 1));
+                      }}
+                      disabled={(() => {
                         const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
                         return currentLineIndex >= lines.length - 1;
-                      })()
-                        ? "bg-muted/30 text-muted-foreground cursor-not-allowed"
-                        : "bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 hover:scale-110 active:scale-95 cursor-pointer"
-                    }`}
-                    title="Next Line"
-                  >
-                    ➡️
-                  </button>
-                </div>
+                      })()}
+                      className={`w-10 h-10 rounded flex items-center justify-center text-lg transition-colors ${
+                        (() => {
+                          const lines = currentLyrics.split("\n").filter(line => line.trim() !== "");
+                          return currentLineIndex >= lines.length - 1;
+                        })()
+                          ? "text-muted-foreground/50 cursor-not-allowed"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }`}
+                      title="Next Line (→)"
+                    >
+                      ›
+                    </button>
+                  </div>
 
-                {/* Progress and Status */}
-                <div className="flex justify-center items-center mt-6 gap-6">
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono-ui text-sm text-muted-foreground">
-                      LINE {currentLineIndex + 1} / {currentLyrics.split("\n").filter(line => line.trim() !== "").length}
-                    </span>
-                    <div className="w-48 h-2 bg-border rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ 
-                          width: `${((currentLineIndex + 1) / currentLyrics.split("\n").filter(line => line.trim() !== "").length) * 100}%` 
-                        }}
-                      />
-                    </div>
-                    <span className="font-mono-ui text-sm text-muted-foreground">
-                      {isAutoMode ? (isPlaying ? "AUTO ▶️" : "AUTO ⏸️") : "MANUAL 👤"}
-                    </span>
-                    {isAutoMode && (
-                      <span className="font-mono-ui text-sm text-primary">
-                        🕒 {Math.floor(youtubeCurrentTime / 60)}:{String(Math.floor(youtubeCurrentTime % 60)).padStart(2, '0')}
+                  {/* Progress Bar - Minimalist */}
+                  <div className="flex justify-center items-center mt-3">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono-ui text-xs text-muted-foreground">
+                        {currentLineIndex + 1}/{currentLyrics.split("\n").filter(line => line.trim() !== "").length}
                       </span>
-                    )}
+                      <div className="w-32 h-1 bg-border rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary/60 transition-all duration-300"
+                          style={{ 
+                            width: `${((currentLineIndex + 1) / currentLyrics.split("\n").filter(line => line.trim() !== "").length) * 100}%` 
+                          }}
+                        />
+                      </div>
+                      <span className="font-mono-ui text-xs text-muted-foreground">
+                        {isAutoMode ? (isPlaying ? "AUTO" : "PAUSED") : "MANUAL"}
+                      </span>
+                      {isAutoMode && (
+                        <span className="font-mono-ui text-xs text-primary/70">
+                          {Math.floor(youtubeCurrentTime / 60)}:{String(Math.floor(youtubeCurrentTime % 60)).padStart(2, '0')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1338,53 +1332,52 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 />
               </div>
 
-              {/* Help Overlay */}
+              {/* Help Overlay - Updated for minimalist design */}
               {showHelp && (
                 <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
                   <div className="bg-background/95 border border-border rounded-lg p-8 max-w-2xl">
                     <div className="text-center mb-6">
-                      <h2 className="font-display text-3xl text-foreground mb-2">PERFORMANCE MODE CONTROLS</h2>
-                      <p className="text-muted-foreground">Optimized for stage use on old iMac</p>
+                      <h2 className="font-display text-3xl text-foreground mb-2">PERFORMANCE MODE</h2>
+                      <p className="text-muted-foreground">Minimalist design focused on lyrics</p>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-6 text-sm">
                       <div>
                         <h3 className="font-mono-ui text-primary mb-3">🎵 SONG NAVIGATION</h3>
                         <div className="space-y-2 text-muted-foreground">
-                          <div>⏮️ <strong>Previous Song:</strong> PgUp or Ctrl+←</div>
-                          <div>⏭️ <strong>Next Song:</strong> PgDn or Ctrl+→</div>
-                          <div>🔳 <strong>Fullscreen:</strong> F11 or click button</div>
-                          <div>❌ <strong>Exit:</strong> ESC key or click ✕</div>
+                          <div>‹ › <strong>Previous/Next Song:</strong> PgUp/PgDn or Ctrl+←/→</div>
+                          <div>⌐ <strong>Fullscreen:</strong> F11 key</div>
+                          <div>× <strong>Exit:</strong> ESC key</div>
+                          <div>? <strong>This Help:</strong> F1 key</div>
                         </div>
                       </div>
                       
                       <div>
                         <h3 className="font-mono-ui text-primary mb-3">📝 LINE NAVIGATION</h3>
                         <div className="space-y-2 text-muted-foreground">
-                          <div>⬅️ <strong>Previous Line:</strong> ← or click left side</div>
-                          <div>➡️ <strong>Next Line:</strong> → or Space or click right</div>
-                          <div>🏠 <strong>First Line:</strong> Home key</div>
-                          <div>🔚 <strong>Last Line:</strong> End key</div>
+                          <div>‹ › <strong>Previous/Next Line:</strong> ← → keys or click screen sides</div>
+                          <div><strong>First Line:</strong> Home key</div>
+                          <div><strong>Last Line:</strong> End key</div>
+                          <div><strong>Quick Jump:</strong> Space bar (next line)</div>
                         </div>
                       </div>
                       
                       <div>
                         <h3 className="font-mono-ui text-primary mb-3">🎮 PLAYBACK MODES</h3>
                         <div className="space-y-2 text-muted-foreground">
-                          <div>🤖 <strong>Auto Mode:</strong> Syncs with YouTube</div>
-                          <div>👤 <strong>Manual Mode:</strong> Full control</div>
-                          <div>▶️ <strong>Play/Pause:</strong> Click button (Auto)</div>
-                          <div>🔄 <strong>Toggle Mode:</strong> Click 🤖/👤</div>
+                          <div>A <strong>Auto Mode:</strong> Syncs with YouTube timing</div>
+                          <div>M <strong>Manual Mode:</strong> Full keyboard control</div>
+                          <div>▶ ⏸ <strong>Play/Pause:</strong> Auto mode only</div>
                         </div>
                       </div>
                       
                       <div>
-                        <h3 className="font-mono-ui text-primary mb-3">💡 STAGE TIPS</h3>
+                        <h3 className="font-mono-ui text-primary mb-3">💡 DESIGN FEATURES</h3>
                         <div className="space-y-2 text-muted-foreground">
-                          <div>📱 <strong>Large Buttons:</strong> Easy mouse control</div>
-                          <div>👆 <strong>Click Areas:</strong> Left/right screen sides</div>
-                          <div>🎯 <strong>High Contrast:</strong> Optimized for old iMac</div>
-                          <div>❓ <strong>This Help:</strong> F1 key anytime</div>
+                          <div><strong>Hover Controls:</strong> UI appears on mouse hover</div>
+                          <div><strong>Clean Focus:</strong> Lyrics take center stage</div>
+                          <div><strong>Click Areas:</strong> Left/right screen for navigation</div>
+                          <div><strong>Progress Bar:</strong> Shows song position</div>
                         </div>
                       </div>
                     </div>
@@ -1394,7 +1387,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                         onClick={() => setShowHelp(false)}
                         className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                       >
-                        Got it! Close Help
+                        Got it!
                       </button>
                     </div>
                   </div>
