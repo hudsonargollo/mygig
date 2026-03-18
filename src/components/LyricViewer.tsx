@@ -1121,13 +1121,30 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                     const currentLine = lines[currentLineIndex] || "";
                     const nextLine = lines[currentLineIndex + 1] || "";
                     const prevLine = lines[currentLineIndex - 1] || "";
+                    const nextLine2 = lines[currentLineIndex + 2] || "";
+                    const prevLine2 = lines[currentLineIndex - 2] || "";
 
                     return (
-                      <div className="space-y-8">
+                      <div className="space-y-4">
+                        {/* Previous Line 2 - Very subtle */}
+                        {prevLine2 && (
+                          <div className="opacity-20 transition-all duration-500">
+                            <div className="text-sm md:text-base text-gray-500 font-light text-center">
+                              {(() => {
+                                const prevLineIndex2 = currentLineIndex - 2;
+                                const segments = getLineSegments(prevLine2, annotations, song.id, prevLineIndex2);
+                                return segments.map((seg, si) => (
+                                  <PerformanceSegmentSpan key={si} segment={seg} />
+                                ));
+                              })()}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Previous Line - Subtle with vocalist markings */}
                         {prevLine && (
-                          <div className="opacity-30 transition-all duration-500">
-                            <div className="text-xl md:text-2xl text-gray-400 font-light text-center">
+                          <div className="opacity-40 transition-all duration-500">
+                            <div className="text-lg md:text-xl text-gray-400 font-light text-center">
                               {(() => {
                                 const prevLineIndex = currentLineIndex - 1;
                                 const segments = getLineSegments(prevLine, annotations, song.id, prevLineIndex);
@@ -1141,9 +1158,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
 
                         {/* Current Line - Main Focus with vocalist markings */}
                         <div className="transition-all duration-700">
-                          <div className="text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-white leading-tight text-center mx-auto max-w-full break-words">
+                          <div className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-white leading-tight text-center mx-auto max-w-full break-words">
                             {currentLine.startsWith("[") && currentLine.endsWith("]") ? (
-                              <span className="text-blue-400 text-3xl md:text-4xl lg:text-5xl uppercase tracking-wider font-medium block">
+                              <span className="text-blue-400 text-xl md:text-2xl lg:text-3xl uppercase tracking-wider font-medium block">
                                 {currentLine.slice(1, -1)}
                               </span>
                             ) : (
@@ -1162,11 +1179,26 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
 
                         {/* Next Line - Subtle with vocalist markings */}
                         {nextLine && (
-                          <div className="opacity-30 transition-all duration-500">
-                            <div className="text-xl md:text-2xl text-gray-400 font-light text-center">
+                          <div className="opacity-40 transition-all duration-500">
+                            <div className="text-lg md:text-xl text-gray-400 font-light text-center">
                               {(() => {
                                 const nextLineIndex = currentLineIndex + 1;
                                 const segments = getLineSegments(nextLine, annotations, song.id, nextLineIndex);
+                                return segments.map((seg, si) => (
+                                  <PerformanceSegmentSpan key={si} segment={seg} />
+                                ));
+                              })()}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Next Line 2 - Very subtle */}
+                        {nextLine2 && (
+                          <div className="opacity-20 transition-all duration-500">
+                            <div className="text-sm md:text-base text-gray-500 font-light text-center">
+                              {(() => {
+                                const nextLineIndex2 = currentLineIndex + 2;
+                                const segments = getLineSegments(nextLine2, annotations, song.id, nextLineIndex2);
                                 return segments.map((seg, si) => (
                                   <PerformanceSegmentSpan key={si} segment={seg} />
                                 ));
@@ -1180,14 +1212,23 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                 </div>
               </div>
 
-              {/* Minimal Exit Button - Only visible on hover */}
+              {/* Exit Button - More visible */}
               <button
                 onClick={togglePerformanceMode}
-                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-red-600/20 text-red-400 hover:bg-red-600/40 transition-all duration-300 opacity-0 hover:opacity-100 flex items-center justify-center text-lg"
+                className="absolute top-4 right-4 w-12 h-12 rounded-full bg-red-600/30 text-red-300 hover:bg-red-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-xl font-bold border border-red-500/50"
                 title="Exit Performance Mode (ESC)"
               >
                 ×
               </button>
+
+              {/* Help text - Only visible briefly on hover */}
+              <div className="absolute top-4 left-4 opacity-0 hover:opacity-100 transition-all duration-300">
+                <div className="text-xs text-gray-400 bg-black/70 px-3 py-2 rounded">
+                  <div>← → Navigate lines</div>
+                  <div>ESC Exit mode</div>
+                  <div>Click sides to navigate</div>
+                </div>
+              </div>
 
               {/* Invisible click areas for navigation */}
               <div className="absolute inset-0 flex pointer-events-none">
