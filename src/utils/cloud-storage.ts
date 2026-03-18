@@ -33,39 +33,62 @@ const getUserId = (): string => {
 
 const API_BASE = '/api/database';
 
-// Save data to D1 database
+// Save data to D1 database with better error handling
 export const saveToDatabase = async (data: DatabaseData): Promise<{ success: boolean; error?: string }> => {
   try {
     const userId = getUserId();
     
-    // Save annotations
-    await fetch(`${API_BASE}/annotations?userId=${userId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data.annotations)
-    });
-    
-    // Save user data (notes, youtube links, etc.)
-    await fetch(`${API_BASE}/userdata?userId=${userId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        notes: data.notes,
-        youtube_links: data.youtubeLinks,
-        loops: data.loops,
-        custom_lyrics: data.customLyrics
+    // Save all data in parallel for better performance
+    const savePromises = [
+      // Save annotations
+      fetch(`${API_BASE}/annotations?userId=${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data.annotations)
+      }),
+      
+      // Save user data (notes, youtube links, etc.)
+      fetch(`${API_BASE}/userdata?userId=${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notes: data.notes,
+          youtube_links: data.youtubeLinks,
+          loops: data.loops,
+          custom_lyrics: data.customLyrics
+        })
       })
-    });
-    
+    ];
+
     // Save timing data for each song
     for (const [songId, timings] of Object.entries(data.timings)) {
       if (timings.length > 0) {
-        await fetch(`${API_BASE}/timing?userId=${userId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ songId, timings })
-        });
+        savePromises.push(
+          fetch(`${API_BASE}/timing?userId=${userId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ songId, timings })
+          })
+        );
       }
+    }
+
+    const responses = await Promise.all(savePromises);
+    
+    // Check if all requests succeeded
+    const failedResponses = responses.filter(r => !r.ok);
+    if (failedResponses.length > 0) {
+      const errorDetails = await Promise.all(
+        failedResponses.map(async r => {
+          try {
+            const errorData = await r.json();
+            return `${r.status}: ${errorData.error || errorData.message || 'Unknown error'}`;
+          } catch {
+            return `${r.status}: ${r.statusText}`;
+          }
+        })
+      );
+      throw new Error(`Database save failed: ${errorDetails.join(', ')}`);
     }
 
     return { success: true };
@@ -73,7 +96,7 @@ export const saveToDatabase = async (data: DatabaseData): Promise<{ success: boo
     console.error('Failed to save to database:', error);
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown database error' 
     };
   }
 };

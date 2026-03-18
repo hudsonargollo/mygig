@@ -212,6 +212,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
   const [showAudioSync, setShowAudioSync] = useState(false);
   const [audioTimings, setAudioTimings] = useState<Record<string, TimingData[]>>({});
   const [audioControls, setAudioControls] = useState<AudioControls | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   
   // Performance mode states (formerly karaoke)
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -455,7 +456,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       [song.id]: timings
     }));
     
-    // Save to database
+    // Save to database immediately
     saveTimingData(song.id, timings);
   }, [song]);
 
@@ -542,20 +543,35 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     save(STORAGE_KEY, data.annotations || []);
   }, []);
 
+  // Save to database immediately when data changes
+  const saveToCloudImmediately = useCallback(async () => {
+    setSaveStatus('saving');
+    try {
+      const data = getCurrentCloudData();
+      const result = await saveToDatabase(data);
+      if (result.success) {
+        console.log('✅ Data saved to cloud database');
+        setSaveStatus('saved');
+      } else {
+        console.warn('⚠️ Cloud save failed, data saved locally:', result.error);
+        setSaveStatus('error');
+      }
+    } catch (error) {
+      console.warn('⚠️ Cloud save error:', error);
+      setSaveStatus('error');
+    }
+  }, [getCurrentCloudData]);
+
   // Auto-backup every 5 minutes if there are changes
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const data = getCurrentCloudData();
-        await saveToDatabase(data);
-        console.log('Auto-backup completed');
-      } catch (error) {
-        console.warn('Auto-backup failed:', error);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-
+    const interval = setInterval(saveToCloudImmediately, 5 * 60 * 1000); // 5 minutes
     return () => clearInterval(interval);
-  }, [getCurrentCloudData]);
+  }, [saveToCloudImmediately]);
+
+  // Save immediately when critical data changes
+  useEffect(() => {
+    saveToCloudImmediately();
+  }, [annotations, notes, youtubeLinks, loops, customLyrics, audioTimings, saveToCloudImmediately]);
 
   const handleMouseUp = useCallback(() => {
     if (!song) return;
@@ -913,6 +929,21 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           >
             🎵 AUDIO SYNC
           </button>
+          
+          {/* Save Status Indicator */}
+          <div className={`px-3 py-1 font-mono-ui text-xs border transition-none ${
+            saveStatus === 'saved' ? 'border-green-500 text-green-500 bg-green-500/10' :
+            saveStatus === 'saving' ? 'border-yellow-500 text-yellow-500 bg-yellow-500/10' :
+            'border-red-500 text-red-500 bg-red-500/10'
+          }`} title={
+            saveStatus === 'saved' ? 'All data saved to cloud database' :
+            saveStatus === 'saving' ? 'Saving to cloud database...' :
+            'Cloud save failed - data saved locally only'
+          }>
+            {saveStatus === 'saved' ? '✅ SAVED' :
+             saveStatus === 'saving' ? '⏳ SAVING' :
+             '⚠️ LOCAL ONLY'}
+          </div>
         </div>
       </div>
       )}
