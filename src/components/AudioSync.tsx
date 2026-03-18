@@ -16,11 +16,12 @@ interface AudioSyncProps {
 }
 
 export interface AudioControls {
-  play: () => void;
+  play: () => Promise<void>;
   pause: () => void;
   seekTo: (timeMs: number) => void;
   setMuted: (muted: boolean) => void;
   isPlaying: boolean;
+  isMuted: boolean;
   currentTime: number;
   duration: number;
   hasAudio: boolean;
@@ -60,12 +61,21 @@ export const AudioSync = ({
   useEffect(() => {
     if (onAudioReady && audioRef.current) {
       const audioControls: AudioControls = {
-        play: () => {
-          audioRef.current?.play();
-          setIsPlaying(true);
+        play: async () => {
+          const audio = audioRef.current;
+          if (!audio) return;
+          try {
+            await audio.play();
+            setIsPlaying(true);
+          } catch (error) {
+            console.error('Audio play error:', error);
+            setIsPlaying(false);
+          }
         },
         pause: () => {
-          audioRef.current?.pause();
+          const audio = audioRef.current;
+          if (!audio) return;
+          audio.pause();
           setIsPlaying(false);
         },
         seekTo: (timeMs: number) => {
@@ -81,13 +91,14 @@ export const AudioSync = ({
           }
         },
         isPlaying,
+        isMuted,
         currentTime,
         duration,
         hasAudio: !!audioFile
       };
       onAudioReady(audioControls);
     }
-  }, [onAudioReady, audioFile, isPlaying, currentTime, duration]);
+  }, [onAudioReady, audioFile, isPlaying, isMuted, currentTime, duration]);
 
   // Load audio file
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,28 +150,47 @@ export const AudioSync = ({
       setIsPlaying(false);
     };
 
+    const handlePlay = () => {
+      setIsPlaying(true);
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+    };
+
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
     };
   }, [isPlaying, timings, currentLineIndex, onCurrentLineChange]);
 
   // Playback controls
-  const togglePlayPause = () => {
+  const togglePlayPause = async () => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play();
+    try {
+      if (isPlaying) {
+        audio.pause();
+        setIsPlaying(false);
+      } else {
+        await audio.play();
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error('Audio playback error:', error);
+      setMessage({ type: 'error', text: 'Failed to play audio. Check browser permissions.' });
+      setIsPlaying(false);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const seekTo = (timeMs: number) => {

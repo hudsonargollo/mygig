@@ -1202,11 +1202,15 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
               {audioControls?.hasAudio && (
                 <div className="absolute top-4 left-4 flex gap-2 z-40">
                   <button
-                    onClick={() => {
-                      if (audioControls.isPlaying) {
-                        audioControls.pause();
-                      } else {
-                        audioControls.play();
+                    onClick={async () => {
+                      try {
+                        if (audioControls.isPlaying) {
+                          audioControls.pause();
+                        } else {
+                          await audioControls.play();
+                        }
+                      } catch (error) {
+                        console.error('Performance mode audio error:', error);
                       }
                     }}
                     className="w-12 h-12 rounded-full bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-blue-500/50"
@@ -1216,11 +1220,11 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                   </button>
                   
                   <button
-                    onClick={() => audioControls.setMuted(!audioControls.isPlaying)}
+                    onClick={() => audioControls.setMuted(!audioControls.isMuted)}
                     className="w-12 h-12 rounded-full bg-gray-600/30 text-gray-300 hover:bg-gray-600/50 hover:text-white transition-all duration-300 flex items-center justify-center text-lg font-bold border border-gray-500/50"
                     title="Toggle Mute"
                   >
-                    🔊
+                    {audioControls.isMuted ? "🔇" : "🔊"}
                   </button>
                 </div>
               )}
