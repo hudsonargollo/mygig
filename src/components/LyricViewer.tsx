@@ -1109,7 +1109,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                         {/* Previous Line 2 - Very subtle */}
                         {prevLine2 && (
                           <div className="opacity-20 transition-all duration-500">
-                            <div className="text-sm md:text-base text-gray-500 font-light text-center">
+                            <div className="text-base md:text-lg lg:text-xl text-gray-500 font-light text-center">
                               {(() => {
                                 const prevLineIndex2 = currentLineIndex - 2;
                                 const segments = getLineSegments(prevLine2, annotations, song.id, prevLineIndex2);
@@ -1121,10 +1121,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                           </div>
                         )}
 
-                        {/* Previous Line - Subtle with vocalist markings */}
+                        {/* Previous Line - More visible with bigger text */}
                         {prevLine && (
-                          <div className="opacity-40 transition-all duration-500">
-                            <div className="text-lg md:text-xl text-gray-400 font-light text-center">
+                          <div className="opacity-60 transition-all duration-500">
+                            <div className="text-xl md:text-2xl lg:text-3xl text-gray-300 font-normal text-center">
                               {(() => {
                                 const prevLineIndex = currentLineIndex - 1;
                                 const segments = getLineSegments(prevLine, annotations, song.id, prevLineIndex);
@@ -1157,10 +1157,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                           </div>
                         </div>
 
-                        {/* Next Line - Subtle with vocalist markings */}
+                        {/* Next Line - More visible with bigger text */}
                         {nextLine && (
-                          <div className="opacity-40 transition-all duration-500">
-                            <div className="text-lg md:text-xl text-gray-400 font-light text-center">
+                          <div className="opacity-60 transition-all duration-500">
+                            <div className="text-xl md:text-2xl lg:text-3xl text-gray-300 font-normal text-center">
                               {(() => {
                                 const nextLineIndex = currentLineIndex + 1;
                                 const segments = getLineSegments(nextLine, annotations, song.id, nextLineIndex);
@@ -1175,7 +1175,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                         {/* Next Line 2 - Very subtle */}
                         {nextLine2 && (
                           <div className="opacity-20 transition-all duration-500">
-                            <div className="text-sm md:text-base text-gray-500 font-light text-center">
+                            <div className="text-base md:text-lg lg:text-xl text-gray-500 font-light text-center">
                               {(() => {
                                 const nextLineIndex2 = currentLineIndex + 2;
                                 const segments = getLineSegments(nextLine2, annotations, song.id, nextLineIndex2);
