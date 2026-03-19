@@ -559,7 +559,8 @@ const LyricViewer = ({
     };
   }, [autoScrollMode, performanceMode, isAutoScrolling, song?.id, scrollSpeeds]); // Use song.id and scrollSpeeds directly
 
-  // Mouse wheel controls for lyrics navigation in performance mode
+  // Mouse wheel controls - DISABLED TO FIX BLACK PAGE
+  /*
   useEffect(() => {
     if (!performanceMode || !song) return;
 
@@ -599,6 +600,7 @@ const LyricViewer = ({
       };
     }
   }, [performanceMode, song?.id, toggleAutoScrollMode]);
+  */
 
   // Auto-sync in performance mode when audio is playing
   useEffect(() => {
