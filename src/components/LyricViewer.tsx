@@ -540,27 +540,31 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     };
   }, [autoScrollMode, performanceMode, isAutoScrolling, song?.id, scrollSpeeds]); // Use song.id and scrollSpeeds directly
 
-  // Enhanced mouse controls for performance mode auto-scroll
+  // Mouse wheel controls for lyrics navigation in performance mode
   useEffect(() => {
     if (!performanceMode || !song) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // In auto-scroll mode, wheel controls speed without modifier
-      if (autoScrollMode) {
-        e.preventDefault();
-        try {
+      e.preventDefault();
+      
+      try {
+        if (autoScrollMode) {
+          // In auto-scroll mode: wheel controls scroll speed
           const currentSpeed = scrollSpeeds[song.id] || 50;
           const delta = e.deltaY > 0 ? -5 : 5; // Scroll down = slower, scroll up = faster
           const newSpeed = Math.max(1, Math.min(100, currentSpeed + delta));
           
-          // Update scroll speeds directly
           setScrollSpeeds(prev => ({
             ...prev,
             [song.id]: newSpeed
           }));
-        } catch (error) {
-          console.error('Mouse wheel speed control error:', error);
+        } else {
+          // In normal mode: wheel scrolls through lyrics manually
+          const scrollAmount = e.deltaY > 0 ? 50 : -50; // Scroll down = forward, scroll up = backward
+          setScrollPosition(prev => Math.max(0, prev + scrollAmount));
         }
+      } catch (error) {
+        console.error('Mouse wheel control error:', error);
       }
     };
 
@@ -569,37 +573,24 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       if (e.button === 1) {
         e.preventDefault();
         try {
-          if (toggleAutoScrollMode) {
-            toggleAutoScrollMode();
-          }
+          toggleAutoScrollMode();
         } catch (error) {
           console.error('Middle click auto-scroll toggle error:', error);
         }
       }
     };
 
-    // Get container with proper null check
+    // Add event listeners to the performance container
     const container = performanceContainerRef.current;
     if (container) {
-      try {
-        container.addEventListener('wheel', handleWheel, { passive: false });
-        container.addEventListener('mousedown', handleMouseDown);
-      } catch (error) {
-        console.error('Failed to add mouse event listeners:', error);
-      }
+      container.addEventListener('wheel', handleWheel, { passive: false });
+      container.addEventListener('mousedown', handleMouseDown);
+      
+      return () => {
+        container.removeEventListener('wheel', handleWheel);
+        container.removeEventListener('mousedown', handleMouseDown);
+      };
     }
-
-    // Cleanup function with null checks
-    return () => {
-      if (container) {
-        try {
-          container.removeEventListener('wheel', handleWheel);
-          container.removeEventListener('mousedown', handleMouseDown);
-        } catch (error) {
-          console.error('Failed to remove mouse event listeners:', error);
-        }
-      }
-    };
   }, [performanceMode, autoScrollMode, song?.id, scrollSpeeds, setScrollSpeeds, toggleAutoScrollMode]);
 
   // Auto-sync in performance mode when audio is playing
@@ -1796,10 +1787,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                     <div>YouTube: Auto-sync with timing data</div>
                   )}
                   {autoScrollMode && (
-                    <div>Auto-scroll: Mouse wheel = speed • Middle click = start/stop</div>
+                    <div>Auto-scroll: Mouse wheel = adjust speed • Middle click = stop</div>
                   )}
                   {!autoScrollMode && (
-                    <div>Mouse: Wheel = scroll speed • Middle click = toggle auto-scroll</div>
+                    <div>Mouse: Wheel = scroll lyrics • Middle click = start auto-scroll</div>
                   )}
                   <div>Click sides to navigate</div>
                 </div>
