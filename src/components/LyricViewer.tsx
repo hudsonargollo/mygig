@@ -27,6 +27,7 @@ interface LyricViewerProps {
   sidebarCollapsed: boolean;
   onSongChange?: (direction: 'prev' | 'next') => void;
   totalSongs?: number;
+  onToggleAutoScroll?: () => void;
 }
 
 const STORAGE_KEY = "lp-setlist-annotations-v2";
@@ -164,7 +165,7 @@ const removeAllOverlap = (existing: TextAnnotation[], songId: string, lineIndex:
   return result;
 };
 
-const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSongChange, totalSongs = 0 }: LyricViewerProps) => {
+const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSongChange, totalSongs = 0, onToggleAutoScroll }: LyricViewerProps) => {
   const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => {
     const userAnnotations = load(STORAGE_KEY, []);
     return mergeAnnotations(userAnnotations);
@@ -539,17 +540,17 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     };
   }, [autoScrollMode, performanceMode, isAutoScrolling, song?.id, scrollSpeeds]); // Use song.id and scrollSpeeds directly
 
-  // Mouse wheel speed control for auto-scroll mode - Fixed with proper null checks
+  // Enhanced mouse controls for performance mode auto-scroll
   useEffect(() => {
-    if (!performanceMode || !autoScrollMode || !song) return;
+    if (!performanceMode || !song) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Only handle wheel events with Ctrl/Cmd modifier
-      if (e.ctrlKey || e.metaKey) {
+      // In auto-scroll mode, wheel controls speed without modifier
+      if (autoScrollMode) {
         e.preventDefault();
         try {
           const currentSpeed = scrollSpeeds[song.id] || 50;
-          const delta = e.deltaY > 0 ? -2 : 2; // Reverse: scroll up = faster, scroll down = slower
+          const delta = e.deltaY > 0 ? -5 : 5; // Scroll down = slower, scroll up = faster
           const newSpeed = Math.max(1, Math.min(100, currentSpeed + delta));
           
           // Update scroll speeds directly
@@ -563,13 +564,28 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       }
     };
 
+    const handleMouseDown = (e: MouseEvent) => {
+      // Middle mouse button (button 1) to toggle auto-scroll
+      if (e.button === 1) {
+        e.preventDefault();
+        try {
+          if (toggleAutoScrollMode) {
+            toggleAutoScrollMode();
+          }
+        } catch (error) {
+          console.error('Middle click auto-scroll toggle error:', error);
+        }
+      }
+    };
+
     // Get container with proper null check
     const container = performanceContainerRef.current;
     if (container) {
       try {
         container.addEventListener('wheel', handleWheel, { passive: false });
+        container.addEventListener('mousedown', handleMouseDown);
       } catch (error) {
-        console.error('Failed to add wheel event listener:', error);
+        console.error('Failed to add mouse event listeners:', error);
       }
     }
 
@@ -578,12 +594,13 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
       if (container) {
         try {
           container.removeEventListener('wheel', handleWheel);
+          container.removeEventListener('mousedown', handleMouseDown);
         } catch (error) {
-          console.error('Failed to remove wheel event listener:', error);
+          console.error('Failed to remove mouse event listeners:', error);
         }
       }
     };
-  }, [performanceMode, autoScrollMode, song?.id, scrollSpeeds, setScrollSpeeds]); // Stable dependencies
+  }, [performanceMode, autoScrollMode, song?.id, scrollSpeeds, setScrollSpeeds, toggleAutoScrollMode]);
 
   // Auto-sync in performance mode when audio is playing
   useEffect(() => {
@@ -782,7 +799,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     setScrollPosition(0);
   };
 
-  // Toggle auto-scroll mode - Updated with proper error handling
+  // Toggle auto-scroll mode - Enhanced with auto-start in performance mode
   const toggleAutoScrollMode = useCallback(() => {
     try {
       const newMode = !autoScrollMode;
@@ -800,6 +817,13 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
           lyricsRef.current.scrollTop = 0;
         }
         
+        // In performance mode, automatically start scrolling when enabled
+        if (performanceMode) {
+          setTimeout(() => {
+            startPerformanceAutoScroll();
+          }, 100); // Small delay to ensure state is updated
+        }
+        
         // Entering auto-scroll mode - close other panels except auto-scroll controls
         setShowNotes(false);
         setShowLyricsEditor(false);
@@ -810,7 +834,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     } catch (error) {
       console.error('Failed to toggle auto-scroll mode:', error);
     }
-  }, [autoScrollMode, stopAutoScroll, stopPerformanceAutoScroll]);
+  }, [autoScrollMode, performanceMode, stopAutoScroll, stopPerformanceAutoScroll, startPerformanceAutoScroll]);
   // Clean up auto-scroll on unmount or song change
   useEffect(() => {
     return () => {
@@ -1734,7 +1758,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
               {autoScrollMode && (
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50">
                   <div className="bg-black/80 backdrop-blur-sm border border-orange-500/30 rounded-lg px-4 py-2 flex items-center gap-3">
-                    <span className="text-xs text-orange-400 font-mono">SPEED</span>
+                    <span className="text-xs text-orange-400 font-mono">
+                      {isAutoScrolling ? "AUTO-SCROLL" : "SCROLL READY"}
+                    </span>
                     <input
                       type="range"
                       min="1"
@@ -1754,6 +1780,9 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                     <span className="text-xs text-orange-400 min-w-[2ch]">
                       {song ? (scrollSpeeds[song.id] || 50) : 50}
                     </span>
+                    <span className="text-xs text-gray-400 font-mono">
+                      🖱️ WHEEL ⚬ CLICK
+                    </span>
                   </div>
                 </div>
               )}
@@ -1767,7 +1796,10 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
                     <div>YouTube: Auto-sync with timing data</div>
                   )}
                   {autoScrollMode && (
-                    <div>Auto-scroll: Ctrl+Mouse wheel to adjust speed • Speed control at bottom</div>
+                    <div>Auto-scroll: Mouse wheel = speed • Middle click = start/stop</div>
+                  )}
+                  {!autoScrollMode && (
+                    <div>Mouse: Wheel = scroll speed • Middle click = toggle auto-scroll</div>
                   )}
                   <div>Click sides to navigate</div>
                 </div>

@@ -8,9 +8,29 @@ interface SetlistSidebarProps {
   onReorder: (songs: Song[]) => void;
   onToggleCollapse: () => void;
   isCollapsed: boolean;
+  // New props for controls
+  onSongChange?: (direction: 'prev' | 'next') => void;
+  onTogglePerformanceMode?: () => void;
+  performanceMode?: boolean;
+  onToggleAutoScroll?: () => void;
+  autoScrollMode?: boolean;
+  isAutoScrolling?: boolean;
 }
 
-const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder, onToggleCollapse, isCollapsed }: SetlistSidebarProps) => {
+const SetlistSidebar = ({ 
+  songs, 
+  selectedSongId, 
+  onSelectSong, 
+  onReorder, 
+  onToggleCollapse, 
+  isCollapsed,
+  onSongChange,
+  onTogglePerformanceMode,
+  performanceMode = false,
+  onToggleAutoScroll,
+  autoScrollMode = false,
+  isAutoScrolling = false
+}: SetlistSidebarProps) => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const dragItem = useRef<number | null>(null);
@@ -89,18 +109,78 @@ const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder, onTogg
   // Full sidebar when expanded
   return (
     <div className="w-full h-full bg-surface border-l border-border flex flex-col">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl tracking-wider text-foreground">SETLIST</h2>
-          <p className="font-mono-ui text-xs text-muted-foreground mt-1">TOCA DO RAUL — 21/03</p>
+      <div className="p-4 border-b border-border">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="font-display text-2xl tracking-wider text-foreground">SETLIST</h2>
+            <p className="font-mono-ui text-xs text-muted-foreground mt-1">TOCA DO RAUL — 21/03</p>
+          </div>
+          <button
+            onClick={onToggleCollapse}
+            className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
+            title="Collapse sidebar"
+          >
+            ☰
+          </button>
         </div>
-        <button
-          onClick={onToggleCollapse}
-          className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
-          title="Collapse sidebar"
-        >
-          ☰
-        </button>
+
+        {/* Control Buttons */}
+        <div className="flex flex-col gap-2">
+          {/* Navigation Controls */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSongChange?.('prev')}
+              className="flex-1 px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+              title="Previous Song"
+            >
+              ⏮️ PREV
+            </button>
+            <button
+              onClick={() => onSongChange?.('next')}
+              className="flex-1 px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+              title="Next Song"
+            >
+              NEXT ⏭️
+            </button>
+          </div>
+
+          {/* Mode Controls */}
+          <div className="flex gap-2">
+            <button
+              onClick={onTogglePerformanceMode}
+              className={`flex-1 px-3 py-2 font-mono-ui text-xs border transition-none ${
+                performanceMode
+                  ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                  : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
+              }`}
+              title="Toggle Performance Mode"
+            >
+              🎭 PERFORM
+            </button>
+            <button
+              onClick={onToggleAutoScroll}
+              className={`flex-1 px-3 py-2 font-mono-ui text-xs border transition-none ${
+                autoScrollMode
+                  ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                  : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
+              }`}
+              title="Toggle Auto-scroll"
+            >
+              📜 SCROLL
+            </button>
+          </div>
+
+          {/* Auto-scroll Status */}
+          {autoScrollMode && (
+            <div className="text-center">
+              <span className={`font-mono-ui text-xs ${
+                isAutoScrolling ? "text-green-500" : "text-orange-500"
+              }`}>
+                {isAutoScrolling ? "🟢 SCROLLING" : "⏸️ PAUSED"}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
