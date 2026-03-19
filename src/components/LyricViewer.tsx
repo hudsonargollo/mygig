@@ -27,7 +27,15 @@ interface LyricViewerProps {
   sidebarCollapsed: boolean;
   onSongChange?: (direction: 'prev' | 'next') => void;
   totalSongs?: number;
-  onToggleAutoScroll?: () => void;
+  // Expose internal functions to parent
+  onGetToggleFunctions?: (functions: {
+    togglePerformanceMode: () => void;
+    toggleAutoScrollMode: () => void;
+  }) => void;
+  // Callback props to sync state with parent
+  onPerformanceModeChange?: (enabled: boolean) => void;
+  onAutoScrollModeChange?: (enabled: boolean) => void;
+  onAutoScrollingChange?: (scrolling: boolean) => void;
 }
 
 const STORAGE_KEY = "lp-setlist-annotations-v2";
@@ -165,7 +173,18 @@ const removeAllOverlap = (existing: TextAnnotation[], songId: string, lineIndex:
   return result;
 };
 
-const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSongChange, totalSongs = 0, onToggleAutoScroll }: LyricViewerProps) => {
+const LyricViewer = ({ 
+  song, 
+  songIndex, 
+  onSidebarToggle, 
+  sidebarCollapsed, 
+  onSongChange, 
+  totalSongs = 0, 
+  onGetToggleFunctions,
+  onPerformanceModeChange,
+  onAutoScrollModeChange,
+  onAutoScrollingChange
+}: LyricViewerProps) => {
   const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => {
     const userAnnotations = load(STORAGE_KEY, []);
     return mergeAnnotations(userAnnotations);
@@ -841,6 +860,29 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     stopPerformanceAutoScroll();
     setScrollPosition(0);
   }, [song?.id]);
+
+  // Notify parent of state changes
+  useEffect(() => {
+    onPerformanceModeChange?.(performanceMode);
+  }, [performanceMode, onPerformanceModeChange]);
+
+  useEffect(() => {
+    onAutoScrollModeChange?.(autoScrollMode);
+  }, [autoScrollMode, onAutoScrollModeChange]);
+
+  useEffect(() => {
+    onAutoScrollingChange?.(isAutoScrolling);
+  }, [isAutoScrolling, onAutoScrollingChange]);
+
+  // Expose toggle functions to parent
+  useEffect(() => {
+    if (onGetToggleFunctions) {
+      onGetToggleFunctions({
+        togglePerformanceMode,
+        toggleAutoScrollMode
+      });
+    }
+  }, [onGetToggleFunctions, togglePerformanceMode, toggleAutoScrollMode]);
 
   // Load scroll speed for current song
   useEffect(() => {

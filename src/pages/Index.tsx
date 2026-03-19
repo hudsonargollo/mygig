@@ -30,6 +30,17 @@ const Index = () => {
   const [songs, setSongs] = useState<Song[]>(loadOrder);
   const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id ?? null); // Default to first song
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Performance and auto-scroll state
+  const [performanceMode, setPerformanceMode] = useState(false);
+  const [autoScrollMode, setAutoScrollMode] = useState(false);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  
+  // Store toggle functions from LyricViewer
+  const [toggleFunctions, setToggleFunctions] = useState<{
+    togglePerformanceMode: () => void;
+    toggleAutoScrollMode: () => void;
+  } | null>(null);
 
   const handleLoadingComplete = useCallback(() => {
     setLoading(false);
@@ -55,6 +66,35 @@ const Index = () => {
     setSelectedSongId(songs[newIndex].id);
   }, [songs, selectedSongId]);
 
+  const handleTogglePerformanceMode = useCallback(() => {
+    toggleFunctions?.togglePerformanceMode();
+  }, [toggleFunctions]);
+
+  const handleToggleAutoScroll = useCallback(() => {
+    toggleFunctions?.toggleAutoScrollMode();
+  }, [toggleFunctions]);
+
+  // Callback handlers to sync state from LyricViewer
+  const handlePerformanceModeChange = useCallback((enabled: boolean) => {
+    setPerformanceMode(enabled);
+  }, []);
+
+  const handleAutoScrollModeChange = useCallback((enabled: boolean) => {
+    setAutoScrollMode(enabled);
+  }, []);
+
+  const handleAutoScrollingChange = useCallback((scrolling: boolean) => {
+    setIsAutoScrolling(scrolling);
+  }, []);
+
+  // Handle receiving toggle functions from LyricViewer
+  const handleGetToggleFunctions = useCallback((functions: {
+    togglePerformanceMode: () => void;
+    toggleAutoScrollMode: () => void;
+  }) => {
+    setToggleFunctions(functions);
+  }, []);
+
   const selectedSong = songs.find((s) => s.id === selectedSongId) ?? null;
   const selectedIndex = songs.findIndex((s) => s.id === selectedSongId);
 
@@ -72,6 +112,10 @@ const Index = () => {
         sidebarCollapsed={sidebarCollapsed}
         onSongChange={handleSongChange}
         totalSongs={songs.length}
+        onGetToggleFunctions={handleGetToggleFunctions}
+        onPerformanceModeChange={handlePerformanceModeChange}
+        onAutoScrollModeChange={handleAutoScrollModeChange}
+        onAutoScrollingChange={handleAutoScrollingChange}
       />
 
       {/* Setlist - Moved to right side, collapsible with minimized version */}
@@ -85,6 +129,12 @@ const Index = () => {
           onReorder={handleReorder}
           onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
           isCollapsed={sidebarCollapsed}
+          onSongChange={handleSongChange}
+          onTogglePerformanceMode={handleTogglePerformanceMode}
+          performanceMode={performanceMode}
+          onToggleAutoScroll={handleToggleAutoScroll}
+          autoScrollMode={autoScrollMode}
+          isAutoScrolling={isAutoScrolling}
         />
       </div>
     </div>
