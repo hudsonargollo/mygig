@@ -820,7 +820,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
         // In performance mode, automatically start scrolling when enabled
         if (performanceMode) {
           setTimeout(() => {
-            startPerformanceAutoScroll();
+            setIsAutoScrolling(true);
           }, 100); // Small delay to ensure state is updated
         }
         
@@ -834,7 +834,7 @@ const LyricViewer = ({ song, songIndex, onSidebarToggle, sidebarCollapsed, onSon
     } catch (error) {
       console.error('Failed to toggle auto-scroll mode:', error);
     }
-  }, [autoScrollMode, performanceMode, stopAutoScroll, stopPerformanceAutoScroll, startPerformanceAutoScroll]);
+  }, [autoScrollMode, performanceMode, stopAutoScroll, stopPerformanceAutoScroll]); // Removed startPerformanceAutoScroll to avoid circular dependency
   // Clean up auto-scroll on unmount or song change
   useEffect(() => {
     return () => {
