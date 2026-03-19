@@ -64,7 +64,17 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Setlist - Collapsible with minimized version */}
+      {/* Lyrics - positioned on the left for better visibility */}
+      <LyricViewer 
+        song={selectedSong} 
+        songIndex={selectedIndex}
+        onSidebarToggle={() => setSidebarCollapsed(prev => !prev)}
+        sidebarCollapsed={sidebarCollapsed}
+        onSongChange={handleSongChange}
+        totalSongs={songs.length}
+      />
+
+      {/* Setlist - Moved to right side, collapsible with minimized version */}
       <div className={`transition-all duration-300 h-full overflow-hidden ${
         sidebarCollapsed ? 'w-16' : 'w-1/4 min-w-[240px] max-w-[360px]'
       }`}>
@@ -77,16 +87,6 @@ const Index = () => {
           isCollapsed={sidebarCollapsed}
         />
       </div>
-
-      {/* Lyrics - remaining width */}
-      <LyricViewer 
-        song={selectedSong} 
-        songIndex={selectedIndex}
-        onSidebarToggle={() => setSidebarCollapsed(prev => !prev)}
-        sidebarCollapsed={sidebarCollapsed}
-        onSongChange={handleSongChange}
-        totalSongs={songs.length}
-      />
     </div>
   );
 };

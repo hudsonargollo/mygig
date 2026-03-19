@@ -48,7 +48,7 @@ const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder, onTogg
   // Minimized sidebar when collapsed
   if (isCollapsed) {
     return (
-      <div className="w-16 h-full bg-surface border-r border-border flex flex-col">
+      <div className="w-16 h-full bg-surface border-l border-border flex flex-col">
         {/* Minimized header with hamburger */}
         <div className="p-2 border-b border-border flex items-center justify-center">
           <button
@@ -88,7 +88,7 @@ const SetlistSidebar = ({ songs, selectedSongId, onSelectSong, onReorder, onTogg
 
   // Full sidebar when expanded
   return (
-    <div className="w-full h-full bg-surface border-r border-border flex flex-col">
+    <div className="w-full h-full bg-surface border-l border-border flex flex-col">
       <div className="p-4 border-b border-border flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl tracking-wider text-foreground">SETLIST</h2>
