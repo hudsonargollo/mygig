@@ -567,21 +567,9 @@ const LyricViewer = ({
       e.preventDefault();
       
       try {
-        if (autoScrollMode) {
-          // In auto-scroll mode: wheel controls scroll speed
-          const currentSpeed = scrollSpeeds[song.id] || 50;
-          const delta = e.deltaY > 0 ? -5 : 5; // Scroll down = slower, scroll up = faster
-          const newSpeed = Math.max(1, Math.min(100, currentSpeed + delta));
-          
-          setScrollSpeeds(prev => ({
-            ...prev,
-            [song.id]: newSpeed
-          }));
-        } else {
-          // In normal mode: wheel scrolls through lyrics manually
-          const scrollAmount = e.deltaY > 0 ? 50 : -50; // Scroll down = forward, scroll up = backward
-          setScrollPosition(prev => Math.max(0, prev + scrollAmount));
-        }
+        // Mouse wheel ALWAYS scrolls through lyrics, regardless of auto-scroll mode
+        const scrollAmount = e.deltaY > 0 ? 50 : -50; // Scroll down = forward, scroll up = backward
+        setScrollPosition(prev => Math.max(0, prev + scrollAmount));
       } catch (error) {
         console.error('Mouse wheel control error:', error);
       }
@@ -610,7 +598,7 @@ const LyricViewer = ({
         container.removeEventListener('mousedown', handleMouseDown);
       };
     }
-  }, [performanceMode, autoScrollMode, song?.id, scrollSpeeds, setScrollSpeeds, toggleAutoScrollMode]);
+  }, [performanceMode, song?.id, toggleAutoScrollMode]);
 
   // Auto-sync in performance mode when audio is playing
   useEffect(() => {
@@ -1824,15 +1812,10 @@ const LyricViewer = ({
               <div className="absolute top-4 left-1/2 transform -translate-x-1/2 opacity-0 hover:opacity-100 transition-all duration-300">
                 <div className="text-xs text-gray-400 bg-black/70 px-3 py-2 rounded text-center">
                   <div>← → Navigate lines • ESC Exit mode • 📜 Toggle auto-scroll</div>
+                  <div>Mouse: Wheel = scroll lyrics • Middle click = toggle auto-scroll</div>
                   {audioControls?.hasAudio && <div>Audio: Play/Pause • Auto-sync available</div>}
                   {!audioControls?.hasAudio && currentYouTube && audioTimings[song.id]?.length > 0 && (
                     <div>YouTube: Auto-sync with timing data</div>
-                  )}
-                  {autoScrollMode && (
-                    <div>Auto-scroll: Mouse wheel = adjust speed • Middle click = stop</div>
-                  )}
-                  {!autoScrollMode && (
-                    <div>Mouse: Wheel = scroll lyrics • Middle click = start auto-scroll</div>
                   )}
                   <div>Click sides to navigate</div>
                 </div>
