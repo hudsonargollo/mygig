@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import LoadingScreen from "@/components/LoadingScreen";
 import SetlistSidebar from "@/components/SetlistSidebar";
 import LyricViewer from "@/components/LyricViewer";
@@ -26,10 +26,28 @@ const loadOrder = (): Song[] => {
 };
 
 const Index = () => {
-  const [loading, setLoading] = useState(false); // Temporarily disable loading screen
+  const [loading, setLoading] = useState(false);
   const [songs, setSongs] = useState<Song[]>(loadOrder);
-  const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id ?? null); // Default to first song
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id ?? null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Mobile state
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Check for mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setSidebarCollapsed(true); // Auto-collapse sidebar on mobile
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Performance and auto-scroll state
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -103,40 +121,79 @@ const Index = () => {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Lyrics - positioned on the left for better visibility */}
-      <LyricViewer 
-        song={selectedSong} 
-        songIndex={selectedIndex}
-        onSidebarToggle={() => setSidebarCollapsed(prev => !prev)}
-        sidebarCollapsed={sidebarCollapsed}
-        onSongChange={handleSongChange}
-        totalSongs={songs.length}
-        onGetToggleFunctions={handleGetToggleFunctions}
-        onPerformanceModeChange={handlePerformanceModeChange}
-        onAutoScrollModeChange={handleAutoScrollModeChange}
-        onAutoScrollingChange={handleAutoScrollingChange}
-      />
+    <div className="flex h-screen w-full overflow-hidden bg-background relative">
+      {/* Mobile Hamburger Menu Button */}
+      {isMobile && (
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="fixed top-4 right-4 z-50 w-12 h-12 bg-surface border border-border rounded-lg flex items-center justify-center text-foreground hover:bg-muted transition-colors md:hidden"
+          aria-label="Toggle menu"
+        >
+          <div className="flex flex-col gap-1">
+            <div className={`w-5 h-0.5 bg-current transition-transform ${mobileMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
+            <div className={`w-5 h-0.5 bg-current transition-opacity ${mobileMenuOpen ? 'opacity-0' : ''}`} />
+            <div className={`w-5 h-0.5 bg-current transition-transform ${mobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
+          </div>
+        </button>
+      )}
 
-      {/* Setlist - Moved to right side, collapsible with minimized version */}
-      <div className={`transition-all duration-300 h-full overflow-hidden ${
-        sidebarCollapsed ? 'w-16' : 'w-1/4 min-w-[240px] max-w-[360px]'
-      }`}>
+      {/* Lyrics - Full width on mobile, left side on desktop */}
+      <div className={`flex-1 ${isMobile ? 'w-full' : ''}`}>
+        <LyricViewer 
+          song={selectedSong} 
+          songIndex={selectedIndex}
+          onSidebarToggle={() => {
+            if (isMobile) {
+              setMobileMenuOpen(prev => !prev);
+            } else {
+              setSidebarCollapsed(prev => !prev);
+            }
+          }}
+          sidebarCollapsed={isMobile ? !mobileMenuOpen : sidebarCollapsed}
+          onSongChange={handleSongChange}
+          totalSongs={songs.length}
+        />
+      </div>
+
+      {/* Setlist Sidebar - Overlay on mobile, right side on desktop */}
+      <div className={`
+        ${isMobile 
+          ? `fixed inset-y-0 right-0 z-40 w-80 transform transition-transform duration-300 ${
+              mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+            }`
+          : `transition-all duration-300 h-full overflow-hidden ${
+              sidebarCollapsed ? 'w-16' : 'w-1/4 min-w-[240px] max-w-[360px]'
+            }`
+        }
+      `}>
         <SetlistSidebar
           songs={songs}
           selectedSongId={selectedSongId}
-          onSelectSong={setSelectedSongId}
+          onSelectSong={(id) => {
+            setSelectedSongId(id);
+            if (isMobile) {
+              setMobileMenuOpen(false); // Close menu after selection on mobile
+            }
+          }}
           onReorder={handleReorder}
-          onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
-          isCollapsed={sidebarCollapsed}
-          onSongChange={handleSongChange}
-          onTogglePerformanceMode={handleTogglePerformanceMode}
-          performanceMode={performanceMode}
-          onToggleAutoScroll={handleToggleAutoScroll}
-          autoScrollMode={autoScrollMode}
-          isAutoScrolling={isAutoScrolling}
+          onToggleCollapse={() => {
+            if (isMobile) {
+              setMobileMenuOpen(prev => !prev);
+            } else {
+              setSidebarCollapsed(prev => !prev);
+            }
+          }}
+          isCollapsed={isMobile ? false : sidebarCollapsed}
         />
       </div>
+
+      {/* Mobile Overlay */}
+      {isMobile && mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
     </div>
   );
 };

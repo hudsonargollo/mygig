@@ -530,7 +530,7 @@ const LyricViewer = ({
     // Only start auto-scroll if all conditions are met
     if (autoScrollMode && performanceMode && isAutoScrolling && song) {
       try {
-        const currentSpeed = scrollSpeeds[song.id] || 50; // Get speed directly to avoid function dependency
+        const currentSpeed = scrollSpeeds[song.id] || 1; // Get speed directly, default to minimum
         const pixelsPerFrame = Math.max(0.5, currentSpeed / 20);
         
         scrollIntervalRef.current = window.setInterval(() => {
@@ -706,8 +706,8 @@ const LyricViewer = ({
 
   // Auto-scroll functionality - Updated with proper error handling
   const getCurrentScrollSpeed = useCallback(() => {
-    if (!song) return 50; // Default speed
-    return scrollSpeeds[song.id] || 50;
+    if (!song) return 1; // Default to minimum speed
+    return scrollSpeeds[song.id] || 1; // Default to minimum speed instead of 50
   }, [song?.id, scrollSpeeds]); // Stable dependencies
 
   const setCurrentScrollSpeed = useCallback((speed: number) => {
@@ -723,7 +723,7 @@ const LyricViewer = ({
     
     try {
       setIsAutoScrolling(true);
-      const speed = scrollSpeeds[song.id] || 50;
+      const speed = scrollSpeeds[song.id] || 1; // Default to minimum speed
       // Convert speed (1-100) to scroll interval (faster = shorter interval)
       const intervalMs = Math.max(10, 110 - speed);
       
@@ -767,7 +767,7 @@ const LyricViewer = ({
     
     try {
       setIsAutoScrolling(true);
-      const speed = scrollSpeeds[song.id] || 50;
+      const speed = scrollSpeeds[song.id] || 1; // Default to minimum speed
       // Convert speed (1-100) to pixels per frame (1-5 pixels)
       const pixelsPerFrame = Math.max(0.5, speed / 20);
       
@@ -1788,7 +1788,7 @@ const LyricViewer = ({
                       type="range"
                       min="1"
                       max="100"
-                      value={song ? (scrollSpeeds[song.id] || 50) : 50}
+                      value={song ? (scrollSpeeds[song.id] || 1) : 1}
                       onChange={(e) => {
                         if (song) {
                           const newSpeed = Number(e.target.value);
@@ -1801,7 +1801,7 @@ const LyricViewer = ({
                       className="w-24 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
                     />
                     <span className="text-xs text-orange-400 min-w-[2ch]">
-                      {song ? (scrollSpeeds[song.id] || 50) : 50}
+                      {song ? (scrollSpeeds[song.id] || 1) : 1}
                     </span>
                     <span className="text-xs text-gray-400 font-mono">
                       🖱️ WHEEL ⚬ CLICK
