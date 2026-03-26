@@ -31,6 +31,12 @@ interface LyricViewerProps {
   onGetToggleFunctions?: (functions: {
     togglePerformanceMode: () => void;
     toggleAutoScrollMode: () => void;
+    toggleNotes: () => void;
+    toggleVocalistMode: () => void;
+    toggleYouTube: () => void;
+    toggleLoopMode: () => void;
+    toggleAudioSync: () => void;
+    toggleBackup: () => void;
   }) => void;
   // Callback props to sync state with parent
   onPerformanceModeChange?: (enabled: boolean) => void;
@@ -869,10 +875,16 @@ const LyricViewer = ({
     if (onGetToggleFunctions) {
       onGetToggleFunctions({
         togglePerformanceMode,
-        toggleAutoScrollMode
+        toggleAutoScrollMode,
+        toggleNotes,
+        toggleVocalistMode,
+        toggleYouTube,
+        toggleLoopMode,
+        toggleAudioSync,
+        toggleBackup
       });
     }
-  }, [onGetToggleFunctions, togglePerformanceMode, toggleAutoScrollMode]);
+  }, [onGetToggleFunctions, togglePerformanceMode, toggleAutoScrollMode, toggleNotes, toggleVocalistMode, toggleYouTube, toggleLoopMode, toggleAudioSync, toggleBackup]);
 
   // Load scroll speed for current song
   useEffect(() => {
@@ -935,7 +947,7 @@ const LyricViewer = ({
       setAnnotations((prev) => {
         let updated = [...prev];
         
-        // Remove all existing annotations in the selected range
+        // Remove all existing annotations in the selected range (all vocalists)
         for (let li = startLineIdx; li <= endLineIdx; li++) {
           const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
           if (offsets) {
@@ -943,8 +955,8 @@ const LyricViewer = ({
           }
         }
         
-        // Save user annotations to localStorage (no defaults to worry about)
-        save(STORAGE_KEY, updated);
+        // Save user annotations to localStorage
+        saveUserAnnotations(updated);
         
         return updated;
       });
@@ -1071,6 +1083,31 @@ const LyricViewer = ({
     setLoopMode(false);
     setPendingLoop(null);
     setEraserMode((prev) => !prev);
+  };
+
+  // Additional toggle functions for sidebar integration
+  const toggleNotes = () => {
+    setShowNotes(prev => !prev);
+  };
+
+  const toggleVocalistMode = () => {
+    // Toggle between no vocalist and first vocalist (giulia)
+    setActiveVocalist(prev => prev === null ? "giulia" : null);
+    setLoopMode(false);
+    setEraserMode(false);
+    setPendingLoop(null);
+  };
+
+  const toggleYouTube = () => {
+    setShowYouTube(prev => !prev);
+  };
+
+  const toggleAudioSync = () => {
+    setShowAudioSync(prev => !prev);
+  };
+
+  const toggleBackup = () => {
+    setShowCloudBackup(prev => !prev);
   };
 
   if (!song) {

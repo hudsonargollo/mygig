@@ -15,6 +15,14 @@ interface SetlistSidebarProps {
   onToggleAutoScroll?: () => void;
   autoScrollMode?: boolean;
   isAutoScrolling?: boolean;
+  // Additional props for megamenu functionality
+  onShowAudioSync?: () => void;
+  onShowNotes?: () => void;
+  onToggleVocalistMode?: () => void;
+  onShowBackup?: () => void;
+  onShowPageBreaks?: () => void;
+  onShowYouTube?: () => void;
+  onToggleLoopMode?: () => void;
 }
 
 const SetlistSidebar = ({ 
@@ -29,7 +37,14 @@ const SetlistSidebar = ({
   performanceMode = false,
   onToggleAutoScroll,
   autoScrollMode = false,
-  isAutoScrolling = false
+  isAutoScrolling = false,
+  onShowAudioSync,
+  onShowNotes,
+  onToggleVocalistMode,
+  onShowBackup,
+  onShowPageBreaks,
+  onShowYouTube,
+  onToggleLoopMode
 }: SetlistSidebarProps) => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -65,26 +80,25 @@ const SetlistSidebar = ({
     dragItem.current = null;
   }, []);
 
-  // Minimized sidebar when collapsed
+  // Minimized sidebar when collapsed - with hover expansion
   if (isCollapsed) {
     return (
-      <div className="w-16 h-full bg-surface border-l border-border flex flex-col">
-        {/* Minimized header with hamburger */}
+      <div className="w-16 h-full bg-surface border-l border-border flex flex-col group hover:w-80 hover:shadow-xl transition-all duration-300 ease-out overflow-hidden">
+        {/* Minimized header */}
         <div className="p-2 border-b border-border flex items-center justify-center">
           <button
             onClick={onToggleCollapse}
             className="w-12 h-8 flex items-center justify-center font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
-            title="Expand sidebar"
+            title="Pin sidebar open"
           >
-            ☰
+            📌
           </button>
         </div>
 
-        {/* Minimized song list - just numbers */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Minimized: Show only numbers */}
+        <div className="flex-1 overflow-y-auto group-hover:hidden">
           {songs.map((song, index) => {
             const isActive = song.id === selectedSongId;
-
             return (
               <div
                 key={song.id}
@@ -102,6 +116,167 @@ const SetlistSidebar = ({
             );
           })}
         </div>
+
+        {/* Expanded content on hover */}
+        <div className="hidden group-hover:flex group-hover:flex-col group-hover:flex-1 group-hover:overflow-hidden">
+          {/* Header */}
+          <div className="p-3 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-mono-ui text-xs text-muted-foreground">SETLIST</span>
+                <div className="font-mono-ui text-xs text-muted-foreground/70 mt-0.5">TOCA DO RAUL</div>
+              </div>
+              <button
+                onClick={onToggleCollapse}
+                className="w-8 h-6 flex items-center justify-center font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
+                title="Pin sidebar open"
+              >
+                📌
+              </button>
+            </div>
+          </div>
+
+          {/* Compact Controls */}
+          <div className="p-3 border-b border-border space-y-2">
+            {/* Navigation */}
+            <div className="flex gap-1">
+              <button
+                onClick={() => onSongChange?.('prev')}
+                className="flex-1 px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Previous Song"
+              >
+                ⏮️
+              </button>
+              <button
+                onClick={() => onSongChange?.('next')}
+                className="flex-1 px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Next Song"
+              >
+                ⏭️
+              </button>
+            </div>
+
+            {/* Primary Modes */}
+            <div className="flex gap-1">
+              <button
+                onClick={onTogglePerformanceMode}
+                className={`flex-1 px-2 py-1 font-mono-ui text-xs border transition-none ${
+                  performanceMode
+                    ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                    : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
+                }`}
+                title="Performance Mode"
+              >
+                🎭
+              </button>
+              <button
+                onClick={onToggleAutoScroll}
+                className={`flex-1 px-2 py-1 font-mono-ui text-xs border transition-none ${
+                  autoScrollMode
+                    ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                    : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
+                }`}
+                title="Auto-scroll"
+              >
+                📜
+              </button>
+            </div>
+
+            {/* Tools Grid - Compact 3x2 */}
+            <div className="grid grid-cols-3 gap-1">
+              <button 
+                onClick={onShowNotes}
+                className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Notes"
+              >
+                📝
+              </button>
+              <button 
+                onClick={onToggleVocalistMode}
+                className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Vocalist Mode"
+              >
+                🎤
+              </button>
+              <button 
+                onClick={onShowYouTube}
+                className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="YouTube Player"
+              >
+                📺
+              </button>
+              <button 
+                onClick={onToggleLoopMode}
+                className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Loop Mode"
+              >
+                🔁
+              </button>
+              <button 
+                onClick={onShowAudioSync}
+                className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Audio Sync"
+              >
+                🎵
+              </button>
+              <button 
+                onClick={onShowBackup}
+                className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Cloud Backup"
+              >
+                💾
+              </button>
+            </div>
+
+            {/* Auto-scroll Status */}
+            {autoScrollMode && (
+              <div className="text-center">
+                <span className={`font-mono-ui text-xs ${
+                  isAutoScrolling ? "text-green-500" : "text-orange-500"
+                }`}>
+                  {isAutoScrolling ? "🟢 SCROLLING" : "⏸️ PAUSED"}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Compact Song List */}
+          <div className="flex-1 overflow-y-auto">
+            {songs.map((song, index) => {
+              const isActive = song.id === selectedSongId;
+              const isDragging = dragIndex === index;
+              const isOver = overIndex === index;
+
+              return (
+                <div
+                  key={song.id}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onClick={() => onSelectSong(song.id)}
+                  className={`px-3 py-2 cursor-pointer transition-colors border-l-2 ${
+                    isActive
+                      ? "bg-accent text-accent-foreground border-l-accent"
+                      : "text-muted-foreground hover:text-accent hover:bg-muted/30 border-l-transparent"
+                  } ${isDragging ? "opacity-50" : ""} ${
+                    isOver ? "bg-muted/50" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono-ui text-xs text-muted-foreground min-w-[2ch]">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="font-mono-ui text-xs truncate">
+                      {song.title}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }
@@ -109,8 +284,9 @@ const SetlistSidebar = ({
   // Full sidebar when expanded
   return (
     <div className="w-full h-full bg-surface border-l border-border flex flex-col">
+      {/* Header */}
       <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-display text-2xl tracking-wider text-foreground">SETLIST</h2>
             <p className="font-mono-ui text-xs text-muted-foreground mt-1">TOCA DO RAUL — 21/03</p>
@@ -120,66 +296,121 @@ const SetlistSidebar = ({
             className="px-2 py-1 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
             title="Collapse sidebar"
           >
-            ☰
+            ⬅️
           </button>
         </div>
 
-        {/* Control Buttons */}
-        <div className="flex flex-col gap-2">
-          {/* Navigation Controls */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => onSongChange?.('prev')}
-              className="flex-1 px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
-              title="Previous Song"
-            >
-              ⏮️ PREV
-            </button>
-            <button
-              onClick={() => onSongChange?.('next')}
-              className="flex-1 px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
-              title="Next Song"
-            >
-              NEXT ⏭️
-            </button>
-          </div>
-
-          {/* Mode Controls */}
-          <div className="flex gap-2">
-            <button
-              onClick={onTogglePerformanceMode}
-              className={`flex-1 px-3 py-2 font-mono-ui text-xs border transition-none ${
-                performanceMode
-                  ? "border-orange-500 text-orange-500 bg-orange-500/10"
-                  : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
-              }`}
-              title="Toggle Performance Mode"
-            >
-              🎭 PERFORM
-            </button>
-            <button
-              onClick={onToggleAutoScroll}
-              className={`flex-1 px-3 py-2 font-mono-ui text-xs border transition-none ${
-                autoScrollMode
-                  ? "border-orange-500 text-orange-500 bg-orange-500/10"
-                  : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
-              }`}
-              title="Toggle Auto-scroll"
-            >
-              📜 SCROLL
-            </button>
-          </div>
-
-          {/* Auto-scroll Status */}
-          {autoScrollMode && (
-            <div className="text-center">
-              <span className={`font-mono-ui text-xs ${
-                isAutoScrolling ? "text-green-500" : "text-orange-500"
-              }`}>
-                {isAutoScrolling ? "🟢 SCROLLING" : "⏸️ PAUSED"}
-              </span>
+        {/* Control Sections */}
+        <div className="space-y-4">
+          {/* Navigation */}
+          <div className="space-y-2">
+            <div className="text-xs font-mono-ui text-muted-foreground uppercase tracking-wider">Navigation</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onSongChange?.('prev')}
+                className="flex-1 px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Previous Song"
+              >
+                ⏮️ PREV
+              </button>
+              <button
+                onClick={() => onSongChange?.('next')}
+                className="flex-1 px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Next Song"
+              >
+                NEXT ⏭️
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* Performance Modes */}
+          <div className="space-y-2">
+            <div className="text-xs font-mono-ui text-muted-foreground uppercase tracking-wider">Modes</div>
+            <div className="flex gap-2">
+              <button
+                onClick={onTogglePerformanceMode}
+                className={`flex-1 px-3 py-2 font-mono-ui text-xs border transition-none ${
+                  performanceMode
+                    ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                    : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
+                }`}
+                title="Performance Mode"
+              >
+                🎭 PERFORM
+              </button>
+              <button
+                onClick={onToggleAutoScroll}
+                className={`flex-1 px-3 py-2 font-mono-ui text-xs border transition-none ${
+                  autoScrollMode
+                    ? "border-orange-500 text-orange-500 bg-orange-500/10"
+                    : "border-border text-muted-foreground hover:text-accent hover:bg-muted/30"
+                }`}
+                title="Auto-scroll"
+              >
+                📜 SCROLL
+              </button>
+            </div>
+            
+            {/* Auto-scroll Status */}
+            {autoScrollMode && (
+              <div className="text-center py-1">
+                <span className={`font-mono-ui text-xs ${
+                  isAutoScrolling ? "text-green-500" : "text-orange-500"
+                }`}>
+                  {isAutoScrolling ? "🟢 SCROLLING" : "⏸️ PAUSED"}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Tools */}
+          <div className="space-y-2">
+            <div className="text-xs font-mono-ui text-muted-foreground uppercase tracking-wider">Tools</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                onClick={onShowNotes}
+                className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Notes Panel"
+              >
+                📝 NOTES
+              </button>
+              <button 
+                onClick={onToggleVocalistMode}
+                className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Vocalist Marking"
+              >
+                🎤 VOCALS
+              </button>
+              <button 
+                onClick={onShowYouTube}
+                className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="YouTube Player"
+              >
+                📺 YOUTUBE
+              </button>
+              <button 
+                onClick={onToggleLoopMode}
+                className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Loop Practice"
+              >
+                🔁 LOOPS
+              </button>
+              <button 
+                onClick={onShowAudioSync}
+                className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Audio Sync"
+              >
+                🎵 AUDIO
+              </button>
+              <button 
+                onClick={onShowBackup}
+                className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                title="Cloud Backup"
+              >
+                💾 BACKUP
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

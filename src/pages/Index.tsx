@@ -58,6 +58,12 @@ const Index = () => {
   const [toggleFunctions, setToggleFunctions] = useState<{
     togglePerformanceMode: () => void;
     toggleAutoScrollMode: () => void;
+    toggleNotes: () => void;
+    toggleVocalistMode: () => void;
+    toggleYouTube: () => void;
+    toggleLoopMode: () => void;
+    toggleAudioSync: () => void;
+    toggleBackup: () => void;
   } | null>(null);
 
   const handleLoadingComplete = useCallback(() => {
@@ -109,6 +115,12 @@ const Index = () => {
   const handleGetToggleFunctions = useCallback((functions: {
     togglePerformanceMode: () => void;
     toggleAutoScrollMode: () => void;
+    toggleNotes: () => void;
+    toggleVocalistMode: () => void;
+    toggleYouTube: () => void;
+    toggleLoopMode: () => void;
+    toggleAudioSync: () => void;
+    toggleBackup: () => void;
   }) => {
     setToggleFunctions(functions);
   }, []);
@@ -152,6 +164,10 @@ const Index = () => {
           sidebarCollapsed={isMobile ? !mobileMenuOpen : sidebarCollapsed}
           onSongChange={handleSongChange}
           totalSongs={songs.length}
+          onGetToggleFunctions={handleGetToggleFunctions}
+          onPerformanceModeChange={handlePerformanceModeChange}
+          onAutoScrollModeChange={handleAutoScrollModeChange}
+          onAutoScrollingChange={handleAutoScrollingChange}
         />
       </div>
 
@@ -184,6 +200,24 @@ const Index = () => {
             }
           }}
           isCollapsed={isMobile ? false : sidebarCollapsed}
+          onSongChange={handleSongChange}
+          onTogglePerformanceMode={handleTogglePerformanceMode}
+          performanceMode={performanceMode}
+          onToggleAutoScroll={handleToggleAutoScroll}
+          autoScrollMode={autoScrollMode}
+          isAutoScrolling={isAutoScrolling}
+          onShowAudioSync={() => toggleFunctions?.toggleAudioSync()}
+          onShowNotes={() => toggleFunctions?.toggleNotes()}
+          onToggleVocalistMode={() => toggleFunctions?.toggleVocalistMode()}
+          onShowBackup={() => toggleFunctions?.toggleBackup()}
+          onShowPageBreaks={() => {
+            // This function doesn't exist in LyricViewer, keeping as placeholder
+            if (window.togglePageBreakEditor) {
+              window.togglePageBreakEditor();
+            }
+          }}
+          onShowYouTube={() => toggleFunctions?.toggleYouTube()}
+          onToggleLoopMode={() => toggleFunctions?.toggleLoopMode()}
         />
       </div>
 
