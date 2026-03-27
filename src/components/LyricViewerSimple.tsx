@@ -610,6 +610,18 @@ const LyricViewerSimple = ({
           >
             🗑️ ERASER
           </button>
+
+          <button
+            onClick={() => {
+              // Debug: Clear all annotations
+              setAnnotations([]);
+              console.log('All annotations cleared');
+            }}
+            className="px-3 py-1 font-mono text-xs border border-red-500 text-red-500 hover:bg-red-500/10 transition-none"
+            title="Clear all annotations (debug)"
+          >
+            🗑️ CLEAR ALL
+          </button>
           
           <button
             onClick={toggleAutoScrollMode}
