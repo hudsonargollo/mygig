@@ -300,101 +300,147 @@ const LyricViewerSimple = ({
   // Mouse selection handler for vocalist annotations
   const handleMouseUp = useCallback(() => {
     if (!song) return;
+    
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) return;
 
-    const range = selection.getRangeAt(0);
-    const container = lyricsRef.current;
-    if (!container || !container.contains(range.startContainer) || !container.contains(range.endContainer)) return;
+    try {
+      const range = selection.getRangeAt(0);
+      const container = lyricsRef.current;
+      if (!container || !container.contains(range.startContainer) || !container.contains(range.endContainer)) return;
 
-    const startLine = range.startContainer.parentElement?.closest("[data-line-index]");
-    const endLine = range.endContainer.parentElement?.closest("[data-line-index]");
-    if (!startLine || !endLine) return;
+      // Find the line elements that contain the selection
+      let startLineElement = range.startContainer.nodeType === Node.TEXT_NODE 
+        ? range.startContainer.parentElement 
+        : range.startContainer as Element;
+      let endLineElement = range.endContainer.nodeType === Node.TEXT_NODE 
+        ? range.endContainer.parentElement 
+        : range.endContainer as Element;
 
-    const startLineIdx = parseInt(startLine.getAttribute("data-line-index") || "-1");
-    const endLineIdx = parseInt(endLine.getAttribute("data-line-index") || "-1");
-    if (startLineIdx < 0 || endLineIdx < 0) return;
-
-    // Helper to get offsets for a line
-    const getOffsets = (li: number, isStart: boolean, isEnd: boolean) => {
-      const lineEl = container.querySelector(`[data-line-index="${li}"]`);
-      if (!lineEl) return null;
-      const lineText = lineEl.textContent || "";
-      let startOffset = 0;
-      let endOffset = lineText.length;
-      if (isStart) {
-        const preRange = document.createRange();
-        preRange.selectNodeContents(lineEl);
-        preRange.setEnd(range.startContainer, range.startOffset);
-        startOffset = preRange.toString().length;
+      // Traverse up to find the data-line-index elements
+      while (startLineElement && !startLineElement.hasAttribute('data-line-index')) {
+        startLineElement = startLineElement.parentElement;
       }
-      if (isEnd) {
-        const preRange = document.createRange();
-        preRange.selectNodeContents(lineEl);
-        preRange.setEnd(range.endContainer, range.endOffset);
-        endOffset = preRange.toString().length;
+      while (endLineElement && !endLineElement.hasAttribute('data-line-index')) {
+        endLineElement = endLineElement.parentElement;
       }
-      return startOffset < endOffset ? { lineIndex: li, startOffset, endOffset } : null;
-    };
 
-    if (eraserMode) {
-      setAnnotations((prev) => {
-        let updated = [...prev];
+      if (!startLineElement || !endLineElement) {
+        console.log('Could not find line elements');
+        return;
+      }
+
+      const startLineIdx = parseInt(startLineElement.getAttribute("data-line-index") || "-1");
+      const endLineIdx = parseInt(endLineElement.getAttribute("data-line-index") || "-1");
+      
+      if (startLineIdx < 0 || endLineIdx < 0) {
+        console.log('Invalid line indices:', startLineIdx, endLineIdx);
+        return;
+      }
+
+      console.log('Selection detected:', { startLineIdx, endLineIdx, activeVocalist, eraserMode });
+
+      // Helper to get offsets for a line
+      const getOffsets = (li: number, isStart: boolean, isEnd: boolean) => {
+        const lineEl = container.querySelector(`[data-line-index="${li}"]`);
+        if (!lineEl) return null;
+        const lineText = lineEl.textContent || "";
+        let startOffset = 0;
+        let endOffset = lineText.length;
         
-        // Remove all existing annotations in the selected range (all vocalists)
+        if (isStart) {
+          try {
+            const preRange = document.createRange();
+            preRange.selectNodeContents(lineEl);
+            preRange.setEnd(range.startContainer, range.startOffset);
+            startOffset = preRange.toString().length;
+          } catch (e) {
+            console.warn('Error calculating start offset:', e);
+          }
+        }
+        if (isEnd) {
+          try {
+            const preRange = document.createRange();
+            preRange.selectNodeContents(lineEl);
+            preRange.setEnd(range.endContainer, range.endOffset);
+            endOffset = preRange.toString().length;
+          } catch (e) {
+            console.warn('Error calculating end offset:', e);
+          }
+        }
+        return startOffset < endOffset ? { lineIndex: li, startOffset, endOffset } : null;
+      };
+
+      if (eraserMode) {
+        console.log('Eraser mode: removing annotations');
+        setAnnotations((prev) => {
+          let updated = [...prev];
+          
+          // Remove all existing annotations in the selected range (all vocalists)
+          for (let li = startLineIdx; li <= endLineIdx; li++) {
+            const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
+            if (offsets) {
+              console.log('Removing annotations for line', li, offsets);
+              updated = removeAllOverlap(updated, song.id, offsets.lineIndex, offsets.startOffset, offsets.endOffset);
+            }
+          }
+          
+          console.log('Updated annotations after eraser:', updated.length);
+          return updated;
+        });
+        selection.removeAllRanges();
+        return;
+      }
+
+      if (activeVocalist) {
+        console.log('Adding vocalist annotations for:', activeVocalist);
+        const newAnnotations: TextAnnotation[] = [];
+        
         for (let li = startLineIdx; li <= endLineIdx; li++) {
           const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
           if (offsets) {
-            updated = removeAllOverlap(updated, song.id, offsets.lineIndex, offsets.startOffset, offsets.endOffset);
-          }
-        }
-        
-        return updated;
-      });
-      selection.removeAllRanges();
-      return;
-    }
-
-    if (activeVocalist) {
-      const newAnnotations: TextAnnotation[] = [];
-      for (let li = startLineIdx; li <= endLineIdx; li++) {
-        const offsets = getOffsets(li, li === startLineIdx, li === endLineIdx);
-        if (offsets) {
-          if (activeVocalist === "all") {
-            // Mark for all three vocalists
-            const allVocalists: Vocalist[] = ["elektra", "chinoda", "luan"];
-            for (const vocalist of allVocalists) {
+            console.log('Adding annotation for line', li, offsets);
+            if (activeVocalist === "all") {
+              // Mark for all three vocalists
+              const allVocalists: Vocalist[] = ["elektra", "chinoda", "luan"];
+              for (const vocalist of allVocalists) {
+                newAnnotations.push({ 
+                  songId: song.id, 
+                  lineIndex: offsets.lineIndex, 
+                  startOffset: offsets.startOffset, 
+                  endOffset: offsets.endOffset, 
+                  vocalist 
+                });
+              }
+            } else {
               newAnnotations.push({ 
                 songId: song.id, 
                 lineIndex: offsets.lineIndex, 
                 startOffset: offsets.startOffset, 
                 endOffset: offsets.endOffset, 
-                vocalist 
+                vocalist: activeVocalist 
               });
             }
-          } else {
-            newAnnotations.push({ 
-              songId: song.id, 
-              lineIndex: offsets.lineIndex, 
-              startOffset: offsets.startOffset, 
-              endOffset: offsets.endOffset, 
-              vocalist: activeVocalist 
-            });
           }
         }
+        
+        if (newAnnotations.length > 0) {
+          console.log('Adding new annotations:', newAnnotations);
+          setAnnotations((prev) => {
+            let updated = [...prev];
+            for (const newAnn of newAnnotations) {
+              // Only remove same-vocalist overlaps — other vocalists stay!
+              updated = removeSameVocalistOverlap(updated, newAnn);
+              updated.push(newAnn);
+            }
+            console.log('Total annotations after adding:', updated.length);
+            return updated;
+          });
+        }
+        selection.removeAllRanges();
       }
-      if (newAnnotations.length > 0) {
-        setAnnotations((prev) => {
-          let updated = [...prev];
-          for (const newAnn of newAnnotations) {
-            // Only remove same-vocalist overlaps — other vocalists stay!
-            updated = removeSameVocalistOverlap(updated, newAnn);
-            updated.push(newAnn);
-          }
-          return updated;
-        });
-      }
-      selection.removeAllRanges();
+    } catch (error) {
+      console.error('Error in handleMouseUp:', error);
     }
   }, [song, activeVocalist, eraserMode]);
 
@@ -539,18 +585,24 @@ const LyricViewerSimple = ({
 
   return (
     <div className="flex-1 flex flex-col bg-background h-full">
-      {/* Header */}
-      <div className="border-b border-border p-6 flex items-end justify-between shrink-0 flex-wrap gap-2">
+      {/* Header - Compact when sidebar is collapsed */}
+      <div className={`border-b border-border flex items-end justify-between shrink-0 flex-wrap gap-2 transition-all duration-300 ${
+        sidebarCollapsed ? 'p-3' : 'p-6'
+      }`}>
         <div>
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className={`font-mono text-xs text-muted-foreground ${sidebarCollapsed ? 'hidden' : ''}`}>
             TRACK {String(songIndex + 1).padStart(2, "0")}
           </span>
-          <h1 className="font-display text-5xl md:text-7xl tracking-wide text-foreground leading-none mt-1">
+          <h1 className={`font-display tracking-wide text-foreground leading-none transition-all duration-300 ${
+            sidebarCollapsed 
+              ? 'text-2xl md:text-3xl mt-0' 
+              : 'text-5xl md:text-7xl mt-1'
+          }`}>
             {song.title.toUpperCase()}
           </h1>
         </div>
         
-        <div className="flex gap-2 flex-wrap">
+        <div className={`flex gap-2 flex-wrap ${sidebarCollapsed ? 'hidden' : ''}`}>
           <button
             onClick={togglePerformanceMode}
             className={`px-3 py-1 font-mono text-xs border transition-none ${
@@ -620,7 +672,7 @@ const LyricViewerSimple = ({
             className="px-3 py-1 font-mono text-xs border border-red-500 text-red-500 hover:bg-red-500/10 transition-none"
             title="Clear all annotations (debug)"
           >
-            🗑️ CLEAR ALL
+            🗑️ CLEAR ALL ({annotations.length})
           </button>
           
           <button
@@ -659,24 +711,25 @@ const LyricViewerSimple = ({
       </div>
 
       {/* Instruction banner */}
-      {activeVocalist && (
+      {(activeVocalist || eraserMode) && (
         <div className={`px-6 py-2 text-xs font-mono border-b border-border ${
-          activeVocalist === "all" 
-            ? "text-primary bg-muted/30"
-            : `${VOCALIST_COLORS[activeVocalist as Vocalist].text} bg-muted/30`
+          eraserMode 
+            ? "text-red-500 bg-red-500/10"
+            : activeVocalist === "all" 
+              ? "text-primary bg-muted/30"
+              : `${VOCALIST_COLORS[activeVocalist as Vocalist].text} bg-muted/30`
         }`}>
-          ✎ Select text to mark as{" "}
-          {activeVocalist === "all" 
-            ? "ALL VOCALISTS" 
-            : activeVocalist === "elektra" ? "LADY 🎤 (Lead Singer)" 
-            : activeVocalist === "chinoda" ? "HUDS 🎙️ (Rap/Co-Lead)" 
-            : "LUAN 🎶 (Harmonics)"}.
-          {" "}Can overlap with other vocalists.
-        </div>
-      )}
-      {eraserMode && (
-        <div className="px-6 py-2 text-xs font-mono border-b border-border text-red-500 bg-muted/30">
-          🗑️ Select text to remove vocalist markings.
+          {eraserMode ? (
+            <>🗑️ Select text to remove vocalist markings. Current annotations: {annotations.filter(a => a.songId === song.id).length}</>
+          ) : (
+            <>✎ Select text to mark as{" "}
+            {activeVocalist === "all" 
+              ? "ALL VOCALISTS" 
+              : activeVocalist === "elektra" ? "LADY 🎤 (Lead Singer)" 
+              : activeVocalist === "chinoda" ? "HUDS 🎙️ (Rap/Co-Lead)" 
+              : "LUAN 🎶 (Harmonics)"}.
+            {" "}Can overlap with other vocalists. Current annotations: {annotations.filter(a => a.songId === song.id).length}</>
+          )}
         </div>
       )}
 
