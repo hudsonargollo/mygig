@@ -291,18 +291,7 @@ const LyricViewerSimple = ({
   const [showYouTube, setShowYouTube] = useState(false);
 
   // Vocalist annotation states
-  const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => {
-    const stored = load(STORAGE_KEY, []);
-    // Add a test annotation to verify colors are working
-    const testAnnotation: TextAnnotation = {
-      songId: "somewhere-i-belong",
-      lineIndex: 0,
-      startOffset: 0,
-      endOffset: 15,
-      vocalist: "elektra"
-    };
-    return stored.length === 0 ? [testAnnotation] : stored;
-  });
+  const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => load(STORAGE_KEY, []));
   const [activeVocalist, setActiveVocalist] = useState<VocalistOrNull>(null);
   const [eraserMode, setEraserMode] = useState(false);
   const [notes, setNotes] = useState<Record<string, string>>(() => load(NOTES_KEY, {}));
