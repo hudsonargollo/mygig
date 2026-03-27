@@ -783,7 +783,30 @@ const LyricViewerSimple = ({
 
               const segments = getLineSegments(trimmed, annotations, song.id, i);
               return (
-                <div key={i} data-line-index={i} className="mb-4 text-2xl md:text-4xl leading-relaxed font-mono">
+                <div 
+                  key={i} 
+                  data-line-index={i} 
+                  className="mb-4 text-2xl md:text-4xl leading-relaxed font-mono cursor-pointer hover:bg-muted/20 transition-colors"
+                  onClick={() => {
+                    console.log('Line clicked:', i, trimmed);
+                    if (activeVocalist && !eraserMode) {
+                      // Quick test: mark entire line
+                      const newAnnotation: TextAnnotation = {
+                        songId: song.id,
+                        lineIndex: i,
+                        startOffset: 0,
+                        endOffset: trimmed.length,
+                        vocalist: activeVocalist === "all" ? "elektra" : activeVocalist as Vocalist
+                      };
+                      setAnnotations(prev => {
+                        const updated = removeSameVocalistOverlap(prev, newAnnotation);
+                        updated.push(newAnnotation);
+                        console.log('Added annotation via click:', newAnnotation);
+                        return updated;
+                      });
+                    }
+                  }}
+                >
                   {segments.map((seg, si) => (
                     <SegmentSpan key={si} segment={seg} />
                   ))}
