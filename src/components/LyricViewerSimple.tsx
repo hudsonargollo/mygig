@@ -20,7 +20,7 @@ const STORAGE_KEY = "lp-setlist-annotations-v2";
 const NOTES_KEY = "lp-setlist-notes";
 const YOUTUBE_KEY = "lp-setlist-youtube";
 
-// Vocalist colors and labels
+// Vocalist colors and labels - Using inline styles for better compatibility
 const VOCALIST_COLORS: Record<Vocalist, { text: string; bg: string; border: string; css: string }> = {
   elektra: { text: "text-cyan-400", bg: "bg-cyan-400/15", border: "border-cyan-400", css: "#22d3ee" },
   chinoda: { text: "text-yellow-400", bg: "bg-yellow-400/15", border: "border-yellow-400", css: "#facc15" },
@@ -183,7 +183,14 @@ const SegmentSpan = ({ segment }: { segment: LineSegment }) => {
   if (segment.vocalists.length === 1) {
     const colors = VOCALIST_COLORS[segment.vocalists[0]];
     return (
-      <span className={`${colors.text} ${colors.bg} px-0.5 rounded-sm`}>
+      <span 
+        className="px-1 py-0.5 rounded-sm"
+        style={{
+          color: colors.css,
+          backgroundColor: `${colors.css}20`,
+          border: `1px solid ${colors.css}40`
+        }}
+      >
         {segment.text}
       </span>
     );
@@ -193,9 +200,10 @@ const SegmentSpan = ({ segment }: { segment: LineSegment }) => {
   const bgColors = segment.vocalists.map((v) => VOCALIST_COLORS[v].css);
   return (
     <span
-      className="px-0.5 rounded-sm text-white font-medium"
+      className="px-1 py-0.5 rounded-sm text-white font-medium"
       style={{
         background: `linear-gradient(90deg, ${bgColors.join(", ")})`,
+        border: `1px solid ${bgColors[0]}60`
       }}
     >
       {segment.text}
@@ -283,7 +291,18 @@ const LyricViewerSimple = ({
   const [showYouTube, setShowYouTube] = useState(false);
 
   // Vocalist annotation states
-  const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => load(STORAGE_KEY, []));
+  const [annotations, setAnnotations] = useState<TextAnnotation[]>(() => {
+    const stored = load(STORAGE_KEY, []);
+    // Add a test annotation to verify colors are working
+    const testAnnotation: TextAnnotation = {
+      songId: "somewhere-i-belong",
+      lineIndex: 0,
+      startOffset: 0,
+      endOffset: 15,
+      vocalist: "elektra"
+    };
+    return stored.length === 0 ? [testAnnotation] : stored;
+  });
   const [activeVocalist, setActiveVocalist] = useState<VocalistOrNull>(null);
   const [eraserMode, setEraserMode] = useState(false);
   const [notes, setNotes] = useState<Record<string, string>>(() => load(NOTES_KEY, {}));
@@ -630,20 +649,17 @@ const LyricViewerSimple = ({
             const labels: Record<Vocalist, string> = { elektra: "LADY", chinoda: "HUDS", luan: "LUAN" };
             const colors = VOCALIST_COLORS[v];
             const symbol = VOCALIST_LABELS[v];
+            const isActive = activeVocalist === v;
             return (
               <button
                 key={v}
                 onClick={() => toggleVocalist(v)}
-                className={`px-3 py-1 font-mono text-xs border transition-none flex items-center gap-2 ${
-                  activeVocalist === v
-                    ? `${colors.border} ${colors.text} ${colors.bg}`
-                    : "border-border text-muted-foreground hover:text-accent"
-                }`}
+                className="px-3 py-1 font-mono text-xs border transition-none flex items-center gap-2"
                 style={{
+                  borderColor: isActive ? colors.css : '#374151',
+                  color: isActive ? colors.css : '#9ca3af',
+                  backgroundColor: isActive ? `${colors.css}20` : `${colors.css}08`,
                   borderLeft: `4px solid ${colors.css}`,
-                  backgroundColor: activeVocalist === v 
-                    ? `${colors.css}15` 
-                    : `${colors.css}05`,
                 }}
               >
                 <span className="text-sm">{symbol}</span>
@@ -712,13 +728,21 @@ const LyricViewerSimple = ({
 
       {/* Instruction banner */}
       {(activeVocalist || eraserMode) && (
-        <div className={`px-6 py-2 text-xs font-mono border-b border-border ${
-          eraserMode 
-            ? "text-red-500 bg-red-500/10"
-            : activeVocalist === "all" 
-              ? "text-primary bg-muted/30"
-              : `${VOCALIST_COLORS[activeVocalist as Vocalist].text} bg-muted/30`
-        }`}>
+        <div 
+          className="px-6 py-2 text-xs font-mono border-b border-border"
+          style={{
+            color: eraserMode 
+              ? '#ef4444'
+              : activeVocalist === "all" 
+                ? '#3b82f6'
+                : activeVocalist ? VOCALIST_COLORS[activeVocalist as Vocalist].css : '#3b82f6',
+            backgroundColor: eraserMode 
+              ? '#ef444420'
+              : activeVocalist === "all" 
+                ? '#3b82f620'
+                : activeVocalist ? `${VOCALIST_COLORS[activeVocalist as Vocalist].css}20` : '#3b82f620'
+          }}
+        >
           {eraserMode ? (
             <>🗑️ Select text to remove vocalist markings. Current annotations: {annotations.filter(a => a.songId === song.id).length}</>
           ) : (
