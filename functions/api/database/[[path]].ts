@@ -4,62 +4,65 @@ interface Env {
   DB: any; // D1Database type
 }
 
-// Database schema
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS annotations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT NOT NULL,
-  song_id TEXT NOT NULL,
-  line_index INTEGER NOT NULL,
-  start_offset INTEGER NOT NULL,
-  end_offset INTEGER NOT NULL,
-  vocalist TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS audio_files (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT NOT NULL,
-  song_id TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  file_size INTEGER NOT NULL,
-  mime_type TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS timing_data (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT NOT NULL,
-  song_id TEXT NOT NULL,
-  line_index INTEGER NOT NULL,
-  timestamp_ms INTEGER NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS user_data (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT UNIQUE NOT NULL,
-  notes TEXT DEFAULT '{}',
-  youtube_links TEXT DEFAULT '{}',
-  loops TEXT DEFAULT '[]',
-  custom_lyrics TEXT DEFAULT '{}',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_annotations_user_song ON annotations(user_id, song_id);
-CREATE INDEX IF NOT EXISTS idx_timing_user_song ON timing_data(user_id, song_id);
-CREATE INDEX IF NOT EXISTS idx_audio_user_song ON audio_files(user_id, song_id);
-`;
+// Database schema - split into individual statements for D1 compatibility
+const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS annotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    song_id TEXT NOT NULL,
+    line_index INTEGER NOT NULL,
+    start_offset INTEGER NOT NULL,
+    end_offset INTEGER NOT NULL,
+    vocalist TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  
+  `CREATE TABLE IF NOT EXISTS audio_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    song_id TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  
+  `CREATE TABLE IF NOT EXISTS timing_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    song_id TEXT NOT NULL,
+    line_index INTEGER NOT NULL,
+    timestamp_ms INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  
+  `CREATE TABLE IF NOT EXISTS user_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT UNIQUE NOT NULL,
+    notes TEXT DEFAULT '{}',
+    youtube_links TEXT DEFAULT '{}',
+    loops TEXT DEFAULT '[]',
+    custom_lyrics TEXT DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+  
+  `CREATE INDEX IF NOT EXISTS idx_annotations_user_song ON annotations(user_id, song_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_timing_user_song ON timing_data(user_id, song_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_audio_user_song ON audio_files(user_id, song_id)`
+];
 
 // Initialize database
 async function initDatabase(env: Env) {
   try {
-    await env.DB.exec(SCHEMA);
+    for (const statement of SCHEMA_STATEMENTS) {
+      await env.DB.prepare(statement).run();
+    }
   } catch (error) {
     console.error('Database initialization failed:', error);
+    throw error;
   }
 }
 
@@ -99,6 +102,50 @@ export async function onRequest(context: any) {
         return handleTiming(request, env, corsHeaders);
       case '/userdata':
         return handleUserData(request, env, corsHeaders);
+      case '/init':
+        // Manual database initialization endpoint
+        try {
+          for (const statement of SCHEMA_STATEMENTS) {
+            await env.DB.prepare(statement).run();
+          }
+          return new Response(JSON.stringify({ 
+            success: true, 
+            message: 'Database initialized successfully',
+            tablesCreated: SCHEMA_STATEMENTS.length
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Database initialization failed',
+            message: error instanceof Error ? error.message : 'Unknown error'
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      case '/test':
+        // Simple database test endpoint
+        try {
+          const result = await env.DB.prepare('SELECT 1 as test').first();
+          return new Response(JSON.stringify({ 
+            success: true, 
+            message: 'Database connection successful',
+            result 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'Database connection failed',
+            message: error instanceof Error ? error.message : 'Unknown error'
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
       default:
         return new Response(JSON.stringify({ error: 'Not Found', path }), { 
           status: 404, 

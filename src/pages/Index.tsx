@@ -6,28 +6,44 @@ import { songs as initialSongs } from "@/data/songs";
 import type { Song } from "@/data/songs";
 
 const SETLIST_ORDER_KEY = "lp-setlist-order";
+const CUSTOM_SONGS_KEY = "lp-setlist-custom-songs";
+
+const loadCustomSongs = (): Song[] => {
+  try {
+    const stored = localStorage.getItem(CUSTOM_SONGS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveCustomSongs = (songs: Song[]) => {
+  localStorage.setItem(CUSTOM_SONGS_KEY, JSON.stringify(songs));
+};
 
 const loadOrder = (): Song[] => {
+  const allSongs = [...initialSongs, ...loadCustomSongs()];
   try {
     const stored = localStorage.getItem(SETLIST_ORDER_KEY);
     if (stored) {
       const ids: string[] = JSON.parse(stored);
       const ordered = ids
-        .map((id) => initialSongs.find((s) => s.id === id))
+        .map((id) => allSongs.find((s) => s.id === id))
         .filter(Boolean) as Song[];
       // Add any new songs not in stored order
-      const missing = initialSongs.filter((s) => !ids.includes(s.id));
+      const missing = allSongs.filter((s) => !ids.includes(s.id));
       return [...ordered, ...missing];
     }
   } catch {
     // fallthrough
   }
-  return initialSongs;
+  return allSongs;
 };
 
 const Index = () => {
   const [loading, setLoading] = useState(false);
   const [songs, setSongs] = useState<Song[]>(loadOrder);
+  const [customSongIds, setCustomSongIds] = useState<string[]>(() => loadCustomSongs().map((s) => s.id));
   const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id ?? null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
@@ -64,6 +80,8 @@ const Index = () => {
     toggleLoopMode: () => void;
     toggleAudioSync: () => void;
     toggleBackup: () => void;
+    toggleEditMode: () => void;
+    togglePaginationMode: () => void;
   } | null>(null);
 
   const handleLoadingComplete = useCallback(() => {
@@ -75,6 +93,35 @@ const Index = () => {
     setSongs(newSongs);
     localStorage.setItem(SETLIST_ORDER_KEY, JSON.stringify(newSongs.map((s) => s.id)));
   }, []);
+
+  const handleAddSong = useCallback((title: string, lyrics: string) => {
+    const id = `custom-${Date.now()}`;
+    const nextNumber = songs.reduce((max, s) => Math.max(max, s.number), 0) + 1;
+    const newSong: Song = { id, number: nextNumber, title, lyrics };
+
+    const newCustomSongs = [...loadCustomSongs(), newSong];
+    saveCustomSongs(newCustomSongs);
+    setCustomSongIds(newCustomSongs.map((s) => s.id));
+
+    const newSongs = [...songs, newSong];
+    setSongs(newSongs);
+    localStorage.setItem(SETLIST_ORDER_KEY, JSON.stringify(newSongs.map((s) => s.id)));
+    setSelectedSongId(id);
+  }, [songs]);
+
+  const handleDeleteSong = useCallback((id: string) => {
+    const newCustomSongs = loadCustomSongs().filter((s) => s.id !== id);
+    saveCustomSongs(newCustomSongs);
+    setCustomSongIds(newCustomSongs.map((s) => s.id));
+
+    const newSongs = songs.filter((s) => s.id !== id);
+    setSongs(newSongs);
+    localStorage.setItem(SETLIST_ORDER_KEY, JSON.stringify(newSongs.map((s) => s.id)));
+
+    if (selectedSongId === id) {
+      setSelectedSongId(newSongs[0]?.id ?? null);
+    }
+  }, [songs, selectedSongId]);
 
   const handleSongChange = useCallback((direction: 'prev' | 'next') => {
     const currentIndex = songs.findIndex(s => s.id === selectedSongId);
@@ -121,6 +168,8 @@ const Index = () => {
     toggleLoopMode: () => void;
     toggleAudioSync: () => void;
     toggleBackup: () => void;
+    toggleEditMode: () => void;
+    togglePaginationMode: () => void;
   }) => {
     setToggleFunctions(functions);
   }, []);
@@ -192,6 +241,9 @@ const Index = () => {
             }
           }}
           onReorder={handleReorder}
+          onAddSong={handleAddSong}
+          onDeleteSong={handleDeleteSong}
+          customSongIds={customSongIds}
           onToggleCollapse={() => {
             if (isMobile) {
               setMobileMenuOpen(prev => !prev);
@@ -210,12 +262,10 @@ const Index = () => {
           onShowNotes={() => toggleFunctions?.toggleNotes()}
           onToggleVocalistMode={() => toggleFunctions?.toggleVocalistMode()}
           onShowBackup={() => toggleFunctions?.toggleBackup()}
-          onShowPageBreaks={() => {
-            // This function doesn't exist in LyricViewer, keeping as placeholder
-            console.log('Page breaks toggled');
-          }}
           onShowYouTube={() => toggleFunctions?.toggleYouTube()}
           onToggleLoopMode={() => toggleFunctions?.toggleLoopMode()}
+          onToggleEditMode={() => toggleFunctions?.toggleEditMode()}
+          onTogglePaginationMode={() => toggleFunctions?.togglePaginationMode()}
         />
       </div>
 

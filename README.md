@@ -1,65 +1,49 @@
-# Music Setlist Application
+# Encore Lyric Harmony (gigsprompter)
 
-## Credits
+A live-performance lyrics teleprompter built for a Linkin Park tribute band (Lady Elektra fronting). Deployed as a Cloudflare Pages app with a D1-backed cloud sync layer, so setlists, vocalist annotations, notes, YouTube reference links, loop regions, and audio-sync timings follow the band across devices.
 
 **Developed by**: ClubeMKT by Hudson Argollo
 
-## How can I edit this code?
+## Features
 
-**Use your preferred IDE**
+- **Passcode-gated access** — a shared band passcode unlocks the app and derives a stable cloud-sync identity, so every device shares one dataset instead of each browser having its own.
+- **Setlist management** — reorder songs, add custom songs (title + lyrics) on the fly, delete them.
+- **Vocalist annotations** — highlight lyric lines/words per vocalist (Elektra / Chinoda / Luan); cue lines like `(Giulia)` or `(Hudson + Luan)` are auto-detected and rendered as compact tags, with an auto-mark button to tag lines from cues in bulk.
+- **Performance mode** — full-screen stage view for live shows.
+- **Auto-scroll** — adjustable-speed hands-free scrolling through lyrics.
+- **Audio sync** — line-by-line timing markers synced to a reference track.
+- **Loop practice mode** — mark a lyric region and loop it for rehearsal.
+- **YouTube reference links**, **per-song notes**, and **cloud backup/restore** panels.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Local development
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requires Node.js & npm ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+git clone https://github.com/hudsonargollo/encore-lyric-harmony.git
+cd encore-lyric-harmony
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+cp .env.example .env.local  # then set VITE_BAND_PASSCODE
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Note: the Cloudflare Pages Functions API (`functions/api/database/[[path]].ts`) does not run under plain `vite dev`. To exercise cloud sync locally, use `npx wrangler pages dev dist` after building, or rely on the deployed environment.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Technologies
 
-**Use GitHub Codespaces**
+- Vite, TypeScript, React
+- shadcn-ui, Tailwind CSS
+- Cloudflare Pages + Pages Functions
+- Cloudflare D1 (SQLite) for cloud sync storage
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deployment
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-This project can be deployed to any static hosting service like Vercel, Netlify, or GitHub Pages.
-
-To build for production:
+This project is deployed as a Cloudflare Pages project named `gigsprompter` (`gigsprompter.pages.dev`, `mygig.clubemkt.digital`), configured in `wrangler.toml` with a bound D1 database (`gigsprompter-db`). Deploys are manual (the Pages project is not connected to a git-based auto-deploy pipeline):
 
 ```sh
+# .env.production.local (gitignored) must set VITE_BAND_PASSCODE — it's
+# baked into the client bundle at build time, so build and deploy from
+# a machine that has it set.
 npm run build
+npx wrangler pages deploy dist --project-name=gigsprompter
 ```
-
-The built files will be in the `dist` directory.

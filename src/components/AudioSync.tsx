@@ -13,6 +13,7 @@ interface AudioSyncProps {
   currentLineIndex: number;
   // Performance mode integration
   onAudioReady?: (audioControls: AudioControls) => void;
+  initialTimings?: TimingData[];
 }
 
 export interface AudioControls {
@@ -39,14 +40,15 @@ export const AudioSync = ({
   onTimingUpdate, 
   onCurrentLineChange,
   currentLineIndex,
-  onAudioReady
+  onAudioReady,
+  initialTimings
 }: AudioSyncProps) => {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [timings, setTimings] = useState<TimingData[]>([]);
+  const [timings, setTimings] = useState<TimingData[]>(initialTimings || []);
   const [isRecording, setIsRecording] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [volume, setVolume] = useState(0.7);
