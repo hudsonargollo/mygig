@@ -7,7 +7,8 @@ A live-performance lyrics teleprompter built for a Linkin Park tribute band (Lad
 ## Features
 
 - **Passcode-gated access** — a shared band passcode unlocks the app and derives a stable cloud-sync identity, so every device shares one dataset instead of each browser having its own.
-- **Setlist management** — reorder songs, add custom songs (title + lyrics) on the fly, delete them.
+- **Multiple setlists** — the app opens on a setlist picker (create, rename, delete); each setlist has its own independently ordered song list.
+- **Setlist management** — reorder songs, pull existing songs in from the shared library, add brand-new custom songs (title + lyrics), delete any of them from the current setlist.
 - **Vocalist annotations** — highlight lyric lines/words per vocalist (Elektra / Chinoda / Luan); cue lines like `(Giulia)` or `(Hudson + Luan)` are auto-detected and rendered as compact tags, with an auto-mark button to tag lines from cues in bulk.
 - **Performance mode** — full-screen stage view for live shows.
 - **Auto-scroll** — adjustable-speed hands-free scrolling through lyrics.

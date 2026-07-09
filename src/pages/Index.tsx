@@ -2,50 +2,36 @@ import { useState, useCallback, useEffect } from "react";
 import LoadingScreen from "@/components/LoadingScreen";
 import SetlistSidebar from "@/components/SetlistSidebar";
 import LyricViewerSimple from "@/components/LyricViewerSimple";
-import { songs as initialSongs } from "@/data/songs";
+import { loadSetlists, saveSetlists, librarySongs } from "@/utils/setlists";
 import type { Song } from "@/data/songs";
 
-const SETLIST_ORDER_KEY = "lp-setlist-order";
-const CUSTOM_SONGS_KEY = "lp-setlist-custom-songs";
+interface IndexProps {
+  setlistId: string;
+  onExitSetlist: () => void;
+}
 
-const loadCustomSongs = (): Song[] => {
-  try {
-    const stored = localStorage.getItem(CUSTOM_SONGS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
+const loadSetlist = (setlistId: string) => loadSetlists().find((s) => s.id === setlistId);
+
+const updateSetlistSongs = (setlistId: string, songs: Song[]) => {
+  const all = loadSetlists();
+  saveSetlists(all.map((s) => (s.id === setlistId ? { ...s, songs } : s)));
 };
 
-const saveCustomSongs = (songs: Song[]) => {
-  localStorage.setItem(CUSTOM_SONGS_KEY, JSON.stringify(songs));
-};
-
-const loadOrder = (): Song[] => {
-  const allSongs = [...initialSongs, ...loadCustomSongs()];
-  try {
-    const stored = localStorage.getItem(SETLIST_ORDER_KEY);
-    if (stored) {
-      const ids: string[] = JSON.parse(stored);
-      const ordered = ids
-        .map((id) => allSongs.find((s) => s.id === id))
-        .filter(Boolean) as Song[];
-      // Add any new songs not in stored order
-      const missing = allSongs.filter((s) => !ids.includes(s.id));
-      return [...ordered, ...missing];
-    }
-  } catch {
-    // fallthrough
-  }
-  return allSongs;
-};
-
-const Index = () => {
+const Index = ({ setlistId, onExitSetlist }: IndexProps) => {
   const [loading, setLoading] = useState(false);
-  const [songs, setSongs] = useState<Song[]>(loadOrder);
-  const [customSongIds, setCustomSongIds] = useState<string[]>(() => loadCustomSongs().map((s) => s.id));
+  const [songs, setSongs] = useState<Song[]>(() => loadSetlist(setlistId)?.songs ?? []);
+  const [setlistName, setSetlistName] = useState<string>(() => loadSetlist(setlistId)?.name ?? "");
   const [selectedSongId, setSelectedSongId] = useState<string | null>(songs[0]?.id ?? null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Reload whenever the picker sends us into a different setlist.
+  useEffect(() => {
+    const setlist = loadSetlist(setlistId);
+    const nextSongs = setlist?.songs ?? [];
+    setSongs(nextSongs);
+    setSetlistName(setlist?.name ?? "");
+    setSelectedSongId(nextSongs[0]?.id ?? null);
+  }, [setlistId]);
   
   // Mobile state
   const [isMobile, setIsMobile] = useState(false);
@@ -91,37 +77,37 @@ const Index = () => {
 
   const handleReorder = useCallback((newSongs: Song[]) => {
     setSongs(newSongs);
-    localStorage.setItem(SETLIST_ORDER_KEY, JSON.stringify(newSongs.map((s) => s.id)));
-  }, []);
+    updateSetlistSongs(setlistId, newSongs);
+  }, [setlistId]);
 
   const handleAddSong = useCallback((title: string, lyrics: string) => {
     const id = `custom-${Date.now()}`;
     const nextNumber = songs.reduce((max, s) => Math.max(max, s.number), 0) + 1;
     const newSong: Song = { id, number: nextNumber, title, lyrics };
 
-    const newCustomSongs = [...loadCustomSongs(), newSong];
-    saveCustomSongs(newCustomSongs);
-    setCustomSongIds(newCustomSongs.map((s) => s.id));
-
     const newSongs = [...songs, newSong];
     setSongs(newSongs);
-    localStorage.setItem(SETLIST_ORDER_KEY, JSON.stringify(newSongs.map((s) => s.id)));
+    updateSetlistSongs(setlistId, newSongs);
     setSelectedSongId(id);
-  }, [songs]);
+  }, [songs, setlistId]);
+
+  const handleAddExistingSong = useCallback((song: Song) => {
+    if (songs.some((s) => s.id === song.id)) return;
+    const newSongs = [...songs, song];
+    setSongs(newSongs);
+    updateSetlistSongs(setlistId, newSongs);
+    setSelectedSongId(song.id);
+  }, [songs, setlistId]);
 
   const handleDeleteSong = useCallback((id: string) => {
-    const newCustomSongs = loadCustomSongs().filter((s) => s.id !== id);
-    saveCustomSongs(newCustomSongs);
-    setCustomSongIds(newCustomSongs.map((s) => s.id));
-
     const newSongs = songs.filter((s) => s.id !== id);
     setSongs(newSongs);
-    localStorage.setItem(SETLIST_ORDER_KEY, JSON.stringify(newSongs.map((s) => s.id)));
+    updateSetlistSongs(setlistId, newSongs);
 
     if (selectedSongId === id) {
       setSelectedSongId(newSongs[0]?.id ?? null);
     }
-  }, [songs, selectedSongId]);
+  }, [songs, selectedSongId, setlistId]);
 
   const handleSongChange = useCallback((direction: 'prev' | 'next') => {
     const currentIndex = songs.findIndex(s => s.id === selectedSongId);
@@ -242,8 +228,11 @@ const Index = () => {
           }}
           onReorder={handleReorder}
           onAddSong={handleAddSong}
+          onAddExistingSong={handleAddExistingSong}
+          librarySongs={librarySongs}
           onDeleteSong={handleDeleteSong}
-          customSongIds={customSongIds}
+          setlistName={setlistName}
+          onExitSetlist={onExitSetlist}
           onToggleCollapse={() => {
             if (isMobile) {
               setMobileMenuOpen(prev => !prev);

@@ -7,8 +7,11 @@ interface SetlistSidebarProps {
   onSelectSong: (id: string) => void;
   onReorder: (songs: Song[]) => void;
   onAddSong?: (title: string, lyrics: string) => void;
+  onAddExistingSong?: (song: Song) => void;
+  librarySongs?: Song[];
   onDeleteSong?: (id: string) => void;
-  customSongIds?: string[];
+  setlistName?: string;
+  onExitSetlist?: () => void;
   onToggleCollapse: () => void;
   isCollapsed: boolean;
   // New props for controls
@@ -35,8 +38,11 @@ const SetlistSidebar = ({
   onSelectSong, 
   onReorder,
   onAddSong,
+  onAddExistingSong,
+  librarySongs = [],
   onDeleteSong,
-  customSongIds = [],
+  setlistName = "",
+  onExitSetlist,
   onToggleCollapse,
   isCollapsed,
   onSongChange,
@@ -57,11 +63,17 @@ const SetlistSidebar = ({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const dragItem = useRef<number | null>(null);
-  const customSongIdSet = new Set(customSongIds);
 
   const [showAddSong, setShowAddSong] = useState(false);
+  const [addSongTab, setAddSongTab] = useState<"library" | "new">("library");
+  const [librarySearch, setLibrarySearch] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newLyrics, setNewLyrics] = useState("");
+
+  const songIdSet = new Set(songs.map((s) => s.id));
+  const availableLibrarySongs = librarySongs.filter(
+    (s) => !songIdSet.has(s.id) && s.title.toLowerCase().includes(librarySearch.toLowerCase())
+  );
 
   const handleSubmitNewSong = useCallback(() => {
     if (!newTitle.trim() || !newLyrics.trim()) return;
@@ -71,9 +83,14 @@ const SetlistSidebar = ({
     setShowAddSong(false);
   }, [newTitle, newLyrics, onAddSong]);
 
+  const handlePickExisting = useCallback((song: Song) => {
+    onAddExistingSong?.(song);
+    setShowAddSong(false);
+  }, [onAddExistingSong]);
+
   const handleDeleteSong = useCallback((e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation();
-    if (window.confirm(`Remove "${title}" from the setlist? This can't be undone.`)) {
+    if (window.confirm(`Remove "${title}" from this setlist?`)) {
       onDeleteSong?.(id);
     }
   }, [onDeleteSong]);
@@ -160,7 +177,7 @@ const SetlistSidebar = ({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="font-display text-2xl tracking-wider text-foreground">SETLIST</h2>
-            <p className="font-mono-ui text-xs text-muted-foreground mt-1">TOCA DO RAUL — 21/03</p>
+            <p className="font-mono-ui text-xs text-muted-foreground mt-1">{setlistName.toUpperCase()}</p>
           </div>
           <button
             onClick={onToggleCollapse}
@@ -177,6 +194,15 @@ const SetlistSidebar = ({
 
         {/* Control Sections */}
         <div className="space-y-4">
+          {onExitSetlist && (
+            <button
+              onClick={onExitSetlist}
+              className="w-full px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none text-left"
+            >
+              ← ALL SETLISTS
+            </button>
+          )}
+
           {/* Navigation */}
           <div className="space-y-2">
             <div className="text-xs font-mono-ui text-muted-foreground uppercase tracking-wider">Navigation</div>
@@ -316,7 +342,6 @@ const SetlistSidebar = ({
           const isActive = song.id === selectedSongId;
           const isDragging = dragIndex === index;
           const isOver = overIndex === index && dragIndex !== index;
-          const isCustom = customSongIdSet.has(song.id);
 
           return (
             <div key={song.id}>
@@ -346,15 +371,13 @@ const SetlistSidebar = ({
                   </span>
                   {song.title.toUpperCase()}
                 </span>
-                {isCustom && (
-                  <button
-                    onClick={(e) => handleDeleteSong(e, song.id, song.title)}
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity px-1"
-                    title="Remove song"
-                  >
-                    ✕
-                  </button>
-                )}
+                <button
+                  onClick={(e) => handleDeleteSong(e, song.id, song.title)}
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity px-1"
+                  title="Remove song"
+                >
+                  ✕
+                </button>
               </div>
 
               {/* Gap indicator */}
@@ -386,43 +409,93 @@ const SetlistSidebar = ({
               </button>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-xs font-mono-ui text-muted-foreground">Title</label>
-              <input
-                autoFocus
-                type="text"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Song title"
-                className="w-full bg-transparent border border-border px-3 py-2 text-sm text-foreground font-mono-ui focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-xs font-mono-ui text-muted-foreground">Lyrics</label>
-              <textarea
-                value={newLyrics}
-                onChange={(e) => setNewLyrics(e.target.value)}
-                placeholder={"Paste the raw lyrics here, one line per line.\nOptional: wrap section labels in brackets, e.g. [Chorus]"}
-                className="w-full h-56 bg-transparent border border-border px-3 py-2 text-sm text-foreground font-mono resize-none focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
+            <div className="flex gap-2 border-b border-border">
               <button
-                onClick={() => setShowAddSong(false)}
-                className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
+                onClick={() => setAddSongTab("library")}
+                className={`px-3 py-2 font-mono-ui text-xs tracking-wide border-b-2 -mb-px transition-none ${
+                  addSongTab === "library" ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-accent"
+                }`}
               >
-                CANCEL
+                FROM LIBRARY
               </button>
               <button
-                onClick={handleSubmitNewSong}
-                disabled={!newTitle.trim() || !newLyrics.trim()}
-                className="px-3 py-2 font-mono-ui text-xs border border-accent text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+                onClick={() => setAddSongTab("new")}
+                className={`px-3 py-2 font-mono-ui text-xs tracking-wide border-b-2 -mb-px transition-none ${
+                  addSongTab === "new" ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-accent"
+                }`}
               >
-                SAVE SONG
+                NEW SONG
               </button>
             </div>
+
+            {addSongTab === "library" ? (
+              <div className="space-y-3">
+                <input
+                  autoFocus
+                  type="text"
+                  value={librarySearch}
+                  onChange={(e) => setLibrarySearch(e.target.value)}
+                  placeholder="Search songs…"
+                  className="w-full bg-transparent border border-border px-3 py-2 text-sm text-foreground font-mono-ui focus:outline-none focus:border-accent"
+                />
+                <div className="h-56 overflow-y-auto border border-border divide-y divide-border">
+                  {availableLibrarySongs.length === 0 ? (
+                    <div className="p-4 text-center font-mono-ui text-xs text-muted-foreground">
+                      {librarySongs.length === 0 ? "No songs in the library yet." : "No matches, or already in this setlist."}
+                    </div>
+                  ) : (
+                    availableLibrarySongs.map((song) => (
+                      <button
+                        key={song.id}
+                        onClick={() => handlePickExisting(song)}
+                        className="w-full text-left px-3 py-2 font-mono-ui text-xs text-muted-foreground hover:text-accent hover:bg-muted/30 transition-none"
+                      >
+                        {song.title.toUpperCase()}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono-ui text-muted-foreground">Title</label>
+                  <input
+                    type="text"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="Song title"
+                    className="w-full bg-transparent border border-border px-3 py-2 text-sm text-foreground font-mono-ui focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono-ui text-muted-foreground">Lyrics</label>
+                  <textarea
+                    value={newLyrics}
+                    onChange={(e) => setNewLyrics(e.target.value)}
+                    placeholder={"Paste the raw lyrics here, one line per line.\nOptional: wrap section labels in brackets, e.g. [Chorus]"}
+                    className="w-full h-56 bg-transparent border border-border px-3 py-2 text-sm text-foreground font-mono resize-none focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setShowAddSong(false)}
+                    className="px-3 py-2 font-mono-ui text-xs border border-border text-muted-foreground hover:text-accent transition-none"
+                  >
+                    CANCEL
+                  </button>
+                  <button
+                    onClick={handleSubmitNewSong}
+                    disabled={!newTitle.trim() || !newLyrics.trim()}
+                    className="px-3 py-2 font-mono-ui text-xs border border-accent text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed transition-none"
+                  >
+                    SAVE SONG
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
